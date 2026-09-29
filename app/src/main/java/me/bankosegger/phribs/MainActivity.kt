@@ -1,0 +1,840 @@
+package me.bankosegger.phribs
+
+import android.content.Context
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import me.bankosegger.phribs.data.AppDatabase
+import me.bankosegger.phribs.data.ExerciseEntity
+import me.bankosegger.phribs.data.WorkoutEntity
+import me.bankosegger.phribs.ui.theme.PhribsTheme
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+// ---------- Data ----------
+
+data class Exercise(val name: String, val sets: Int, val reps: Int, val weightKg: Double)
+data class Workout(val id: Long, val date: Long, val exercises: List<Exercise>)
+
+// Legacy Storage helper for fallback and auto-migration to Room
+object Storage {
+    private const val PREFS = "gym_tracker"
+    private const val KEY = "workouts"
+
+    fun load(context: Context): List<Workout> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i ->
+                val w = arr.getJSONObject(i)
+                val ex = w.getJSONArray("exercises")
+                Workout(
+                    id = w.getLong("id"),
+                    date = w.getLong("date"),
+                    exercises = List(ex.length()) { j ->
+                        val e = ex.getJSONObject(j)
+                        Exercise(e.getString("name"), e.getInt("sets"), e.getInt("reps"), e.getDouble("weight"))
+                    }
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun save(context: Context, workouts: List<Workout>) {
+        val arr = JSONArray()
+        workouts.forEach { w ->
+            val ex = JSONArray()
+            w.exercises.forEach { e ->
+                ex.put(
+                    JSONObject().put("name", e.name).put("sets", e.sets)
+                        .put("reps", e.reps).put("weight", e.weightKg)
+                )
+            }
+            arr.put(JSONObject().put("id", w.id).put("date", w.date).put("exercises", ex))
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY, arr.toString()).apply()
+    }
+}
+
+// ---------- Helpers ----------
+
+private val dayKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+private fun getDisplayFormat() = SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault())
+
+private fun visitDays(workouts: List<Workout>, since: Long = 0L): Int =
+    workouts.filter { it.date >= since }
+        .map { dayKeyFormat.format(Date(it.date)) }
+        .distinct().size
+
+private fun startOfWeek(): Long = Calendar.getInstance().apply {
+    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+private fun startOfMonth(): Long = Calendar.getInstance().apply {
+    set(Calendar.DAY_OF_MONTH, 1)
+    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+private fun fmtWeight(d: Double) = if (d % 1.0 == 0.0) d.toInt().toString() else d.toString()
+
+private fun describe(e: Exercise): String {
+    val weight = if (e.weightKg > 0) " @ ${fmtWeight(e.weightKg)} kg" else ""
+    return "${e.sets} × ${e.reps}$weight"
+}
+
+// ---------- App ----------
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            PhribsTheme(darkTheme = true) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    GymApp()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GymApp() {
+    val context = LocalContext.current
+    val database = remember { AppDatabase.getDatabase(context) }
+    val workoutDao = remember { database.workoutDao() }
+    val scope = rememberCoroutineScope()
+
+    // Live Flow from Room Database
+    val workoutsWithExercises by workoutDao.getAllWorkouts().collectAsState(initial = emptyList())
+    val workouts = remember(workoutsWithExercises) {
+        workoutsWithExercises.map { it.toDomainModel() }
+    }
+
+    var logging by remember { mutableStateOf(false) }
+
+    if (logging) {
+        BackHandler { logging = false }
+        LogWorkoutScreen(
+            knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
+            onSave = { exercises ->
+                val now = System.currentTimeMillis()
+                scope.launch(Dispatchers.IO) {
+                    val workoutEntity = WorkoutEntity(id = now, date = now)
+                    val exerciseEntities = exercises.map { e ->
+                        ExerciseEntity(
+                            workoutId = now,
+                            name = e.name,
+                            sets = e.sets,
+                            reps = e.reps,
+                            weightKg = e.weightKg
+                        )
+                    }
+                    workoutDao.insertFullWorkout(workoutEntity, exerciseEntities)
+                }
+                logging = false
+            },
+            onCancel = { logging = false }
+        )
+    } else {
+        HomeScreen(
+            workouts = workouts,
+            onLog = { logging = true },
+            onDelete = { w ->
+                scope.launch(Dispatchers.IO) {
+                    workoutDao.deleteWorkoutById(w.id)
+                }
+            }
+        )
+    }
+}
+
+// ---------- Home screen ----------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(workouts: List<Workout>, onLog: () -> Unit, onDelete: (Workout) -> Unit) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FitnessCenter,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "GYM TRACKER",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onLog,
+                icon = { Icon(Icons.Default.Add, contentDescription = "Log workout") },
+                text = { Text("Log Workout", fontWeight = FontWeight.SemiBold) },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Stats Section
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatCard("This Week", visitDays(workouts, startOfWeek()), Icons.Default.DateRange, Modifier.weight(1f))
+                    StatCard("This Month", visitDays(workouts, startOfMonth()), Icons.Default.CalendarMonth, Modifier.weight(1f))
+                    StatCard("All Time", visitDays(workouts), Icons.Default.EmojiEvents, Modifier.weight(1f))
+                }
+            }
+
+            // Top Exercises Card
+            item { TopExercisesCard(workouts) }
+
+            // History Header
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Workout History",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "${workouts.size} logged",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Empty state or workouts list
+            if (workouts.isEmpty()) {
+                item {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                            Text(
+                                text = "No workouts recorded yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Tap 'Log Workout' below to start tracking your progress.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(workouts, key = { it.id }) { w ->
+                    WorkoutCard(w, onDelete)
+                }
+            }
+
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Phribs Gym Tracker v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            item { Spacer(Modifier.height(80.dp)) }
+        }
+    }
+}
+
+@Composable
+fun StatCard(label: String, value: Int, icon: ImageVector, modifier: Modifier = Modifier) {
+    OutlinedCard(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                text = "$value",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun TopExercisesCard(workouts: List<Workout>) {
+    val top = remember(workouts) {
+        workouts.flatMap { it.exercises }
+            .groupingBy { it.name }.eachCount()
+            .entries.sortedByDescending { it.value }.take(4)
+    }
+    if (top.isEmpty()) return
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "Most Frequently Trained",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            top.forEach { (name, count) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = "${count}×",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkoutCard(w: Workout, onDelete: (Workout) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Event,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = getDisplayFormat().format(Date(w.date)),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${w.exercises.size} exercise${if (w.exercises.size != 1) "s" else ""}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    w.exercises.forEach { e ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .padding(end = 4.dp)
+                            )
+                            Text(
+                                text = e.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = describe(e),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    OutlinedButton(
+                        onClick = { confirmDelete = true },
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                            brush = SolidColor(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Delete Log")
+                    }
+                }
+            }
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = { Text("Delete this workout?") },
+            text = { Text("This entry will be permanently removed from your workout history.") },
+            confirmButton = {
+                Button(
+                    onClick = { confirmDelete = false; onDelete(w) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+// ---------- Log workout screen ----------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LogWorkoutScreen(
+    knownExercises: List<String>,
+    onSave: (List<Exercise>) -> Unit,
+    onCancel: () -> Unit
+) {
+    val added = remember { mutableStateListOf<Exercise>() }
+    var name by remember { mutableStateOf("") }
+    var sets by remember { mutableStateOf("3") }
+    var reps by remember { mutableStateOf("10") }
+    var weight by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Log Workout", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Exercise Input Card
+            item {
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = "Add Exercise",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Exercise name (e.g. Bench Press)") },
+                            leadingIcon = {
+                                Icon(Icons.Default.FitnessCenter, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (knownExercises.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "Quick select recent:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(knownExercises) { ex ->
+                                        AssistChip(
+                                            onClick = { name = ex },
+                                            label = { Text(ex) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.History,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
+                            NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
+                            NumberField("Weight (kg)", weight, { weight = it }, Modifier.weight(1f))
+                        }
+
+                        Button(
+                            onClick = {
+                                added += Exercise(
+                                    name = name.trim(),
+                                    sets = sets.toIntOrNull() ?: 0,
+                                    reps = reps.toIntOrNull() ?: 0,
+                                    weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
+                                )
+                                name = ""
+                            },
+                            enabled = name.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add to Workout", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            // Added exercises list section
+            if (added.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Current Workout Exercises (${added.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                itemsIndexed(added) { index, e ->
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = e.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = describe(e),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            IconButton(onClick = { added.removeAt(index) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove exercise",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Save / Cancel actions
+            item {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = { onSave(added.toList()) },
+                        enabled = added.isNotEmpty(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save Workout", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NumberField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+    )
+}
