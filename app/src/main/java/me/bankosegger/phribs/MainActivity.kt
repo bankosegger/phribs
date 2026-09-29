@@ -10,6 +10,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -29,12 +31,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -52,12 +57,15 @@ import me.bankosegger.phribs.data.AppDatabase
 import me.bankosegger.phribs.data.ExerciseEntity
 import me.bankosegger.phribs.data.WorkoutEntity
 import me.bankosegger.phribs.ui.theme.PhribsTheme
+import me.bankosegger.phribs.ui.theme.ThemeMode
+import me.bankosegger.phribs.ui.theme.ThemePreferences
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.core.content.edit
 
 // ---------- Data ----------
 
@@ -104,7 +112,7 @@ object Storage {
             arr.put(JSONObject().put("id", w.id).put("date", w.date).put("exercises", ex))
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, arr.toString()).apply()
+            .edit { putString(KEY, arr.toString()) }
     }
 }
 
@@ -144,12 +152,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PhribsTheme(darkTheme = true) {
+            var themeMode by remember { mutableStateOf(ThemePreferences.getThemeMode(this)) }
+            PhribsTheme(themeMode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    GymApp()
+                    GymApp(
+                        themeMode = themeMode,
+                        onThemeModeChange = { mode ->
+                            themeMode = mode
+                            ThemePreferences.setThemeMode(this, mode)
+                        }
+                    )
                 }
             }
         }
@@ -157,7 +172,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun GymApp() {
+fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val workoutDao = remember { database.workoutDao() }
@@ -170,8 +185,16 @@ fun GymApp() {
     }
 
     var logging by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
-    if (logging) {
+    if (showSettings) {
+        BackHandler { showSettings = false }
+        SettingsScreen(
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            onBack = { showSettings = false }
+        )
+    } else if (logging) {
         BackHandler { logging = false }
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
@@ -198,12 +221,92 @@ fun GymApp() {
         HomeScreen(
             workouts = workouts,
             onLog = { logging = true },
+            onOpenSettings = { showSettings = true },
             onDelete = { w ->
                 scope.launch(Dispatchers.IO) {
                     workoutDao.deleteWorkoutById(w.id)
                 }
+            },
+            onUpdate = { w, newExercises ->
+                scope.launch(Dispatchers.IO) {
+                    val exerciseEntities = newExercises.map { e ->
+                        ExerciseEntity(
+                            workoutId = w.id,
+                            name = e.name,
+                            sets = e.sets,
+                            reps = e.reps,
+                            weightKg = e.weightKg
+                        )
+                    }
+                    workoutDao.updateFullWorkout(w.id, exerciseEntities)
+                }
             }
         )
+    }
+}
+
+// ---------- Settings screen ----------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Appearance",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.selectableGroup()) {
+                    ThemeMode.entries.forEach { mode ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = mode == themeMode,
+                                    onClick = { onThemeModeChange(mode) },
+                                    role = Role.RadioButton
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = mode == themeMode, onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(mode.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -211,7 +314,13 @@ fun GymApp() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(workouts: List<Workout>, onLog: () -> Unit, onDelete: (Workout) -> Unit) {
+fun HomeScreen(
+    workouts: List<Workout>,
+    onLog: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onDelete: (Workout) -> Unit,
+    onUpdate: (Workout, List<Exercise>) -> Unit
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -231,6 +340,11 @@ fun HomeScreen(workouts: List<Workout>, onLog: () -> Unit, onDelete: (Workout) -
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -333,7 +447,7 @@ fun HomeScreen(workouts: List<Workout>, onLog: () -> Unit, onDelete: (Workout) -
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w, onDelete)
+                    WorkoutCard(w = w, onDelete = onDelete, onUpdate = onUpdate)
                 }
             }
 
@@ -462,9 +576,14 @@ fun TopExercisesCard(workouts: List<Workout>) {
 }
 
 @Composable
-fun WorkoutCard(w: Workout, onDelete: (Workout) -> Unit) {
+fun WorkoutCard(
+    w: Workout,
+    onDelete: (Workout) -> Unit,
+    onUpdate: (Workout, List<Exercise>) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var editingWorkout by remember { mutableStateOf(false) }
 
     OutlinedCard(
         modifier = Modifier
@@ -564,28 +683,59 @@ fun WorkoutCard(w: Workout, onDelete: (Workout) -> Unit) {
 
                     Spacer(Modifier.height(4.dp))
 
-                    OutlinedButton(
-                        onClick = { confirmDelete = true },
-                        modifier = Modifier.align(Alignment.End),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        ),
-                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                            brush = SolidColor(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Delete Log")
+                        OutlinedButton(
+                            onClick = { confirmDelete = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                                brush = SolidColor(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Delete Log")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Button(
+                            onClick = { editingWorkout = true },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Edit Exercises")
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (editingWorkout) {
+        EditWorkoutDialog(
+            workout = w,
+            onSave = { updatedExercises ->
+                editingWorkout = false
+                onUpdate(w, updatedExercises)
+            },
+            onDismiss = { editingWorkout = false }
+        )
     }
 
     if (confirmDelete) {
@@ -617,6 +767,173 @@ fun WorkoutCard(w: Workout, onDelete: (Workout) -> Unit) {
     }
 }
 
+// ---------- Edit Workout Dialog ----------
+
+@Composable
+fun EditWorkoutDialog(
+    workout: Workout,
+    onSave: (List<Exercise>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val editedExercises = remember { mutableStateListOf<Exercise>().apply { addAll(workout.exercises) } }
+    var editingIndex by remember { mutableStateOf<Int?>(null) }
+    var name by remember { mutableStateOf("") }
+    var sets by remember { mutableStateOf("3") }
+    var reps by remember { mutableStateOf("10") }
+    var weight by remember { mutableStateOf("") }
+
+    fun clearInput() {
+        editingIndex = null
+        name = ""
+        sets = "3"
+        reps = "10"
+        weight = ""
+    }
+
+    fun startEditing(index: Int, e: Exercise) {
+        editingIndex = index
+        name = e.name
+        sets = e.sets.toString()
+        reps = e.reps.toString()
+        weight = if (e.weightKg > 0) fmtWeight(e.weightKg) else ""
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text("Edit Workout Exercises", style = MaterialTheme.typography.titleLarge)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 450.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Exercise List
+                LazyColumn(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(editedExercises) { index, e ->
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.outlinedCardColors(
+                                containerColor = if (editingIndex == index) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(e.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                    Text(describe(e), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                                }
+                                IconButton(onClick = { startEditing(index, e) }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(onClick = {
+                                    editedExercises.removeAt(index)
+                                    if (editingIndex == index) clearInput()
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Text(
+                    text = if (editingIndex != null) "Editing Selected Exercise" else "Add New Exercise",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Exercise Name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
+                    NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
+                    NumberField("Weight", weight, { weight = it }, Modifier.weight(1f))
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (editingIndex != null) {
+                        OutlinedButton(
+                            onClick = { clearInput() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancel Edit")
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            val newExercise = Exercise(
+                                name = name.trim(),
+                                sets = sets.toIntOrNull() ?: 0,
+                                reps = reps.toIntOrNull() ?: 0,
+                                weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
+                            )
+                            if (editingIndex != null) {
+                                editedExercises[editingIndex!!] = newExercise
+                            } else {
+                                editedExercises.add(newExercise)
+                            }
+                            clearInput()
+                        },
+                        enabled = name.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(if (editingIndex != null) "Update" else "Add Exercise")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(editedExercises.toList()) },
+                enabled = editedExercises.isNotEmpty()
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 // ---------- Log workout screen ----------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -627,10 +944,27 @@ fun LogWorkoutScreen(
     onCancel: () -> Unit
 ) {
     val added = remember { mutableStateListOf<Exercise>() }
+    var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
     var sets by remember { mutableStateOf("3") }
     var reps by remember { mutableStateOf("10") }
     var weight by remember { mutableStateOf("") }
+
+    fun clearInput() {
+        editingIndex = null
+        name = ""
+        sets = "3"
+        reps = "10"
+        weight = ""
+    }
+
+    fun startEditing(index: Int, e: Exercise) {
+        editingIndex = index
+        name = e.name
+        sets = e.sets.toString()
+        reps = e.reps.toString()
+        weight = if (e.weightKg > 0) fmtWeight(e.weightKg) else ""
+    }
 
     Scaffold(
         topBar = {
@@ -671,7 +1005,7 @@ fun LogWorkoutScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Add Exercise",
+                            text = if (editingIndex != null) "Edit Selected Exercise" else "Add Exercise",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
@@ -721,23 +1055,48 @@ fun LogWorkoutScreen(
                             NumberField("Weight (kg)", weight, { weight = it }, Modifier.weight(1f))
                         }
 
-                        Button(
-                            onClick = {
-                                added += Exercise(
-                                    name = name.trim(),
-                                    sets = sets.toIntOrNull() ?: 0,
-                                    reps = reps.toIntOrNull() ?: 0,
-                                    weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
-                                )
-                                name = ""
-                            },
-                            enabled = name.isNotBlank(),
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Add to Workout", fontWeight = FontWeight.SemiBold)
+                            if (editingIndex != null) {
+                                OutlinedButton(
+                                    onClick = { clearInput() },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Cancel Edit")
+                                }
+                            }
+                            Button(
+                                onClick = {
+                                    val newExercise = Exercise(
+                                        name = name.trim(),
+                                        sets = sets.toIntOrNull() ?: 0,
+                                        reps = reps.toIntOrNull() ?: 0,
+                                        weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
+                                    )
+                                    if (editingIndex != null) {
+                                        added[editingIndex!!] = newExercise
+                                    } else {
+                                        added += newExercise
+                                    }
+                                    clearInput()
+                                },
+                                enabled = name.isNotBlank(),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (editingIndex != null) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = null
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (editingIndex != null) "Update Exercise" else "Add to Workout",
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
@@ -756,10 +1115,12 @@ fun LogWorkoutScreen(
 
                 itemsIndexed(added) { index, e ->
                     OutlinedCard(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { startEditing(index, e) },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.outlinedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
+                            containerColor = if (editingIndex == index) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
                         )
                     ) {
                         Row(
@@ -780,7 +1141,17 @@ fun LogWorkoutScreen(
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                             }
-                            IconButton(onClick = { added.removeAt(index) }) {
+                            IconButton(onClick = { startEditing(index, e) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit exercise",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = {
+                                added.removeAt(index)
+                                if (editingIndex == index) clearInput()
+                            }) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Remove exercise",

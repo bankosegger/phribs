@@ -1,7 +1,6 @@
 package me.bankosegger.phribs.data
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -26,8 +25,14 @@ abstract class WorkoutDao {
         insertExercises(exercises)
     }
 
-    @Delete
-    abstract suspend fun deleteWorkout(workout: WorkoutEntity)
+    @Query("DELETE FROM exercises WHERE workoutId = :workoutId")
+    abstract suspend fun deleteExercisesForWorkout(workoutId: Long)
+
+    @Transaction
+    open suspend fun updateFullWorkout(workoutId: Long, exercises: List<ExerciseEntity>) {
+        deleteExercisesForWorkout(workoutId)
+        insertExercises(exercises)
+    }
 
     @Query("DELETE FROM workouts WHERE id = :workoutId")
     abstract suspend fun deleteWorkoutById(workoutId: Long)
