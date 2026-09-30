@@ -37,6 +37,9 @@ abstract class WorkoutDao {
     @Query("DELETE FROM workouts WHERE id = :workoutId")
     abstract suspend fun deleteWorkoutById(workoutId: Long)
 
+    @Query("DELETE FROM workouts")
+    abstract suspend fun deleteAllWorkouts()
+
     @Query("SELECT COUNT(*) FROM workouts")
     abstract suspend fun getWorkoutCount(): Int
 }
