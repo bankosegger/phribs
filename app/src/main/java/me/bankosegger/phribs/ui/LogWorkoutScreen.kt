@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Exercise
+import me.bankosegger.phribs.ExerciseSet
+import me.bankosegger.phribs.beatsRecord
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.ui.theme.WeightUnit
 
@@ -29,6 +31,7 @@ import me.bankosegger.phribs.ui.theme.WeightUnit
 @Composable
 fun LogWorkoutScreen(
     knownExercises: List<String>,
+    previousBests: Map<String, ExerciseSet> = emptyMap(),
     weightUnit: WeightUnit = WeightUnit.KG,
     onSave: (List<Exercise>) -> Unit,
     onCancel: () -> Unit
@@ -207,11 +210,17 @@ fun LogWorkoutScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = e.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = e.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (beatsRecord(e.sets, previousBests[e.name.lowercase()])) PrBadge("New PR")
+                                }
                                 Text(
                                     text = describe(e, weightUnit),
                                     style = MaterialTheme.typography.bodyMedium,

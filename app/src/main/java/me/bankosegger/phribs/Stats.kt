@@ -80,4 +80,37 @@ internal data class PersonalRecord(val set: ExerciseSet, val date: Long)
 // Heaviest set, with reps breaking ties; the earliest date wins so the record shows when it was first hit.
 internal fun personalRecord(sessions: List<ExerciseSession>): PersonalRecord? =
     sessions.flatMap { s -> s.sets.map { PersonalRecord(it, s.date) } }
-        .maxWithOrNull(compareBy<PersonalRecord> { it.set.weightKg }.thenBy { it.set.reps }.thenByDescending { it.date })
+        .maxWithOrNull(compareBy<PersonalRecord, ExerciseSet>(setOrder) { it.set }.thenByDescending { it.date })
+
+private val setOrder = compareBy<ExerciseSet> { it.weightKg }.thenBy { it.reps }
+
+internal fun topSet(sets: List<ExerciseSet>): ExerciseSet? = sets.maxWithOrNull(setOrder)
+
+// A first-ever session has nothing to beat, so it isn't a record.
+internal fun beatsRecord(sets: List<ExerciseSet>, previousBest: ExerciseSet?): Boolean {
+    val top = topSet(sets) ?: return false
+    return previousBest != null && setOrder.compare(top, previousBest) > 0
+}
+
+// Keyed by lowercased exercise name.
+internal fun bestSets(workouts: List<Workout>): Map<String, ExerciseSet> =
+    workouts.flatMap { it.exercises }
+        .groupBy { it.name.lowercase() }
+        .mapNotNull { (name, es) -> topSet(es.flatMap { it.sets })?.let { name to it } }
+        .toMap()
+
+// Lowercased names of the exercises in each workout that beat every earlier workout's best.
+internal fun newRecords(workouts: List<Workout>): Map<Long, Set<String>> {
+    val best = mutableMapOf<String, ExerciseSet>()
+    val result = mutableMapOf<Long, Set<String>>()
+    for (w in workouts.sortedBy { it.date }) {
+        val tops = w.exercises.groupBy { it.name.lowercase() }
+            .mapNotNull { (name, es) -> topSet(es.flatMap { it.sets })?.let { name to it } }
+        val beaten = tops.filter { (name, top) -> beatsRecord(listOf(top), best[name]) }.map { it.first }.toSet()
+        if (beaten.isNotEmpty()) result[w.id] = beaten
+        for ((name, top) in tops) {
+            if (best[name] == null || beaten.contains(name)) best[name] = top
+        }
+    }
+    return result
+}

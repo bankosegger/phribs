@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.Workout
+import me.bankosegger.phribs.newRecords
 import me.bankosegger.phribs.startOfMonth
 import me.bankosegger.phribs.startOfWeek
 import me.bankosegger.phribs.visitDays
@@ -37,6 +38,7 @@ fun HomeScreen(
     onUpdate: (Workout, List<Exercise>) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val records = remember(workouts) { newRecords(workouts) }
     // Only the top of the list shows the full label, so the pill doesn't cover workout cards.
     val fabExpanded by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
@@ -164,7 +166,7 @@ fun HomeScreen(
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w = w, weightUnit = weightUnit, onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
+                    WorkoutCard(w = w, weightUnit = weightUnit, records = records[w.id].orEmpty(), onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
                 }
             }
 

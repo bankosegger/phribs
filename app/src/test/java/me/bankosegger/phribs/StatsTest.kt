@@ -165,6 +165,26 @@ class StatsTest {
     }
 
     @Test
+    fun `a set only counts as a record when it beats an earlier best`() {
+        assertEquals(false, beatsRecord(listOf(set(5, 80.0)), null))
+        assertEquals(false, beatsRecord(listOf(set(5, 80.0)), set(5, 80.0)))
+        assertEquals(true, beatsRecord(listOf(set(3, 60.0), set(6, 80.0)), set(5, 80.0)))
+        assertEquals(true, beatsRecord(listOf(set(1, 82.5)), set(5, 80.0)))
+        assertEquals(false, beatsRecord(emptyList(), set(5, 80.0)))
+    }
+
+    @Test
+    fun `new records are flagged against earlier workouts only`() {
+        val w = listOf(
+            Workout(3, 3000, listOf(Exercise("Bench", listOf(set(5, 75.0))))),
+            Workout(1, 1000, listOf(Exercise("Bench", listOf(set(5, 70.0))), Exercise("Squat", listOf(set(5, 100.0))))),
+            Workout(2, 2000, listOf(Exercise("bench", listOf(set(5, 72.5))), Exercise("Squat", listOf(set(5, 100.0)))))
+        )
+        assertEquals(mapOf(2L to setOf("bench"), 3L to setOf("bench")), newRecords(w))
+        assertEquals(mapOf("bench" to set(5, 75.0), "squat" to set(5, 100.0)), bestSets(w))
+    }
+
+    @Test
     fun `nice ticks are round and cover the range`() {
         assertEquals(listOf(60.0, 65.0, 70.0, 75.0), niceTicks(61.0, 74.0))
         assertEquals(listOf(0.0, 1.0, 2.0), niceTicks(1.0, 1.0).let { listOf(it.first(), it[1], it.last()) })

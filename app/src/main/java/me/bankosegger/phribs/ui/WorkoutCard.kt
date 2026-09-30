@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -32,6 +33,7 @@ import java.util.Date
 fun WorkoutCard(
     w: Workout,
     weightUnit: WeightUnit = WeightUnit.KG,
+    records: Set<String> = emptySet(),
     onOpenExercise: (String) -> Unit = {},
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
@@ -73,11 +75,17 @@ fun WorkoutCard(
                         )
                     }
                     Column {
-                        Text(
-                            text = getDisplayFormat().format(Date(w.date)),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = getDisplayFormat().format(Date(w.date)),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (records.isNotEmpty()) PrBadge(if (records.size > 1) "${records.size} PRs" else "PR")
+                        }
                         Text(
                             text = "${w.exercises.size} exercise${if (w.exercises.size != 1) "s" else ""}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -128,6 +136,9 @@ fun WorkoutCard(
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f)
                             )
+                            if (e.name.lowercase() in records) {
+                                PrBadge(modifier = Modifier.padding(end = 8.dp))
+                            }
                             Text(
                                 text = describe(e, weightUnit),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -221,5 +232,24 @@ fun WorkoutCard(
                 OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+internal fun PrBadge(label: String = "PR", modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Icon(Icons.Default.EmojiEvents, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
     }
 }

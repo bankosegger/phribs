@@ -170,6 +170,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         BackHandler { logging = false }
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
+            previousBests = remember(workouts) { bestSets(workouts) },
             weightUnit = weightUnit,
             onSave = { exercises ->
                 val now = System.currentTimeMillis()
