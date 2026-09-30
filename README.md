@@ -11,7 +11,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - Personal-record badges on workouts that beat the previous best
 - Weekly streak (current and best)
 - Activity heatmap for the last 18 weeks
-- Dark, light or system theme
+- Dark, light or system theme, with optional system (Material You) accent colors
 - Home screen widget
 - kg or lb weight unit
 - Export and import backups as JSON or CSV

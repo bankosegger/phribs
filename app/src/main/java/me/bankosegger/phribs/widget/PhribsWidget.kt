@@ -28,8 +28,7 @@ import kotlinx.coroutines.flow.first
 import me.bankosegger.phribs.MainActivity
 import me.bankosegger.phribs.data.AppDatabase
 import me.bankosegger.phribs.startOfWeek
-import me.bankosegger.phribs.ui.theme.DarkColorScheme
-import me.bankosegger.phribs.ui.theme.LightColorScheme
+import me.bankosegger.phribs.ui.theme.colorScheme
 import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.ThemePreferences
 import me.bankosegger.phribs.visitDays
@@ -43,10 +42,12 @@ class PhribsWidget : GlanceAppWidget() {
         val visits = visitDays(workouts, startOfWeek())
         val streak = weeklyStreaks(workouts).current
         val weeklyGoal = ThemePreferences.getWeeklyGoal(context)
+        val dynamic = ThemePreferences.getDynamicColor(context)
+        fun scheme(dark: Boolean) = colorScheme(context, dark, dynamic)
         val colors = when (ThemePreferences.getThemeMode(context)) {
-            ThemeMode.DARK -> ColorProviders(DarkColorScheme)
-            ThemeMode.LIGHT -> ColorProviders(LightColorScheme)
-            ThemeMode.SYSTEM -> ColorProviders(light = LightColorScheme, dark = DarkColorScheme)
+            ThemeMode.DARK -> ColorProviders(scheme(dark = true))
+            ThemeMode.LIGHT -> ColorProviders(scheme(dark = false))
+            ThemeMode.SYSTEM -> ColorProviders(light = scheme(dark = false), dark = scheme(dark = true))
         }
 
         provideContent {

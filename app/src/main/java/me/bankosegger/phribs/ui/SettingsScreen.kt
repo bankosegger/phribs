@@ -2,6 +2,7 @@ package me.bankosegger.phribs.ui
 
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,12 +20,15 @@ import me.bankosegger.phribs.BackupFormat
 import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.WeightUnit
+import me.bankosegger.phribs.ui.theme.supportsDynamicColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
+    dynamicColor: Boolean,
+    onDynamicColorChange: (Boolean) -> Unit,
     weeklyGoal: Int,
     onWeeklyGoalChange: (Int) -> Unit,
     weightUnit: WeightUnit,
@@ -100,6 +104,38 @@ fun SettingsScreen(
                             RadioButton(selected = mode == themeMode, onClick = null)
                             Spacer(Modifier.width(16.dp))
                             Text(mode.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    if (supportsDynamicColor) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(
+                                    value = dynamicColor,
+                                    onValueChange = onDynamicColorChange,
+                                    role = Role.Switch
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Use system colors", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = "Match the accent color of your wallpaper",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = dynamicColor,
+                                onCheckedChange = null,
+                                // The default unchecked thumb uses `outline`, which is nearly invisible in the fixed dark scheme.
+                                colors = SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
                         }
                     }
                 }

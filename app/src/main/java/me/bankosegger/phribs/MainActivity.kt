@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var themeMode by remember { mutableStateOf(ThemePreferences.getThemeMode(this)) }
+            var dynamicColor by remember { mutableStateOf(ThemePreferences.getDynamicColor(this)) }
             val darkTheme = themeMode.isDark()
             // The default edge-to-edge style follows the system theme, not the one picked in-app.
             DisposableEffect(darkTheme) {
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            PhribsTheme(themeMode = themeMode) {
+            PhribsTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -60,6 +61,11 @@ class MainActivity : ComponentActivity() {
                         onThemeModeChange = { mode ->
                             themeMode = mode
                             ThemePreferences.setThemeMode(this, mode)
+                        },
+                        dynamicColor = dynamicColor,
+                        onDynamicColorChange = { enabled ->
+                            dynamicColor = enabled
+                            ThemePreferences.setDynamicColor(this, enabled)
                         }
                     )
                 }
@@ -69,7 +75,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
+fun GymApp(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    dynamicColor: Boolean,
+    onDynamicColorChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val workoutDao = remember { database.workoutDao() }
@@ -85,7 +96,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
 
     // Every database change flows through here, so this keeps the widget in sync.
-    LaunchedEffect(workoutsWithExercises, themeMode, weeklyGoal) {
+    LaunchedEffect(workoutsWithExercises, themeMode, dynamicColor, weeklyGoal) {
         PhribsWidget().updateAll(context)
     }
 
@@ -142,6 +153,8 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         SettingsScreen(
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
+            dynamicColor = dynamicColor,
+            onDynamicColorChange = onDynamicColorChange,
             weeklyGoal = weeklyGoal,
             onWeeklyGoalChange = { goal ->
                 weeklyGoal = goal

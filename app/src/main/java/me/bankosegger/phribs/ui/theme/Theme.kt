@@ -3,6 +3,7 @@ package me.bankosegger.phribs.ui.theme
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -39,6 +40,7 @@ object ThemePreferences {
     private const val KEY_THEME = "theme_mode"
     private const val KEY_WEEKLY_GOAL = "weekly_goal"
     private const val KEY_WEIGHT_UNIT = "weight_unit"
+    private const val KEY_DYNAMIC_COLOR = "dynamic_color"
     private const val DEFAULT_WEEKLY_GOAL = 3
 
     fun getThemeMode(context: Context): ThemeMode {
@@ -79,6 +81,14 @@ object ThemePreferences {
     fun setWeightUnit(context: Context, unit: WeightUnit) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit { putString(KEY_WEIGHT_UNIT, unit.name) }
+    }
+
+    fun getDynamicColor(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_DYNAMIC_COLOR, false)
+
+    fun setDynamicColor(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
     }
 }
 
@@ -133,25 +143,25 @@ fun ThemeMode.isDark(): Boolean = when (this) {
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
 }
 
+val supportsDynamicColor: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+fun colorScheme(context: Context, dark: Boolean, dynamicColor: Boolean): ColorScheme = when {
+    // Dynamic schemes use the same color for background and surface, which would make cards blend into the page.
+    dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        if (dark) dynamicDarkColorScheme(context).let { it.copy(surface = it.surfaceContainer) }
+        else dynamicLightColorScheme(context).let { it.copy(background = it.surfaceContainer, surface = it.surfaceContainerLowest) }
+    dark -> DarkColorScheme
+    else -> LightColorScheme
+}
+
 @Composable
 fun PhribsTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val darkTheme = themeMode.isDark()
-
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = colorScheme(LocalContext.current, themeMode.isDark(), dynamicColor),
         typography = Typography,
         content = content
     )
