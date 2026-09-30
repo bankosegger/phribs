@@ -32,6 +32,7 @@ fun HomeScreen(
     weightUnit: WeightUnit = WeightUnit.KG,
     onLog: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenExercise: (String) -> Unit,
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
 ) {
@@ -99,7 +100,7 @@ fun HomeScreen(
             item { ActivityCard(workouts) }
 
             // Top Exercises Card
-            item { TopExercisesCard(workouts) }
+            item { TopExercisesCard(workouts, onOpenExercise) }
 
             // History Header
             item {
@@ -163,7 +164,7 @@ fun HomeScreen(
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w = w, weightUnit = weightUnit, onDelete = onDelete, onUpdate = onUpdate)
+                    WorkoutCard(w = w, weightUnit = weightUnit, onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
                 }
             }
 

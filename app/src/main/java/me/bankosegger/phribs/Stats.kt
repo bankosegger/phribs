@@ -61,3 +61,23 @@ internal fun weeklyStreaks(workouts: List<Workout>, now: Long = System.currentTi
     }
     return Streaks(current, best)
 }
+
+internal data class ExerciseSession(val date: Long, val sets: List<ExerciseSet>) {
+    val topWeightKg: Double get() = sets.maxOfOrNull { it.weightKg } ?: 0.0
+    val volumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }
+    val totalReps: Int get() = sets.sumOf { it.reps }
+}
+
+// Oldest first. An exercise logged twice in one workout counts as one session.
+internal fun exerciseSessions(workouts: List<Workout>, name: String): List<ExerciseSession> =
+    workouts.mapNotNull { w ->
+        val sets = w.exercises.filter { it.name.equals(name, ignoreCase = true) }.flatMap { it.sets }
+        if (sets.isEmpty()) null else ExerciseSession(w.date, sets)
+    }.sortedBy { it.date }
+
+internal data class PersonalRecord(val set: ExerciseSet, val date: Long)
+
+// Heaviest set, with reps breaking ties; the earliest date wins so the record shows when it was first hit.
+internal fun personalRecord(sessions: List<ExerciseSession>): PersonalRecord? =
+    sessions.flatMap { s -> s.sets.map { PersonalRecord(it, s.date) } }
+        .maxWithOrNull(compareBy<PersonalRecord> { it.set.weightKg }.thenBy { it.set.reps }.thenByDescending { it.date })

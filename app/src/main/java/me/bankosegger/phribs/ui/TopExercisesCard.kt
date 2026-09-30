@@ -1,6 +1,9 @@
 package me.bankosegger.phribs.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Workout
 
 @Composable
-fun TopExercisesCard(workouts: List<Workout>) {
+fun TopExercisesCard(workouts: List<Workout>, onOpenExercise: (String) -> Unit = {}) {
     val top = remember(workouts) {
         workouts.flatMap { it.exercises }
             .groupingBy { it.name }.eachCount()
@@ -45,7 +48,9 @@ fun TopExercisesCard(workouts: List<Workout>) {
 
             top.forEach { (name, count) ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenExercise(name) },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -55,7 +60,7 @@ fun TopExercisesCard(workouts: List<Workout>) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     SuggestionChip(
-                        onClick = {},
+                        onClick = { onOpenExercise(name) },
                         label = {
                             Text(
                                 text = "${count}×",
@@ -64,6 +69,11 @@ fun TopExercisesCard(workouts: List<Workout>) {
                             )
                         },
                         shape = RoundedCornerShape(12.dp)
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

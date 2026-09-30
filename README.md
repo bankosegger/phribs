@@ -18,7 +18,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 ## Ideas
 
 ### Most useful
-- [ ] **Per-exercise progress:** tap an exercise to see a weight or volume chart over time, plus the personal record
+- [x] **Per-exercise progress:** tap an exercise to see a weight or volume chart over time, plus the personal record
 - [ ] **Personal-record alerts:** show a badge when a logged set beats the previous best
 - [ ] **Rest timer:** countdown after each set, with a notification and vibration
 - [ ] **Templates / routines:** save a routine (e.g. "Push day") and start a workout from it, pre-filled from last time

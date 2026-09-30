@@ -32,6 +32,7 @@ import java.util.Date
 fun WorkoutCard(
     w: Workout,
     weightUnit: WeightUnit = WeightUnit.KG,
+    onOpenExercise: (String) -> Unit = {},
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
 ) {
@@ -109,6 +110,7 @@ fun WorkoutCard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clickable { onOpenExercise(e.name) }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {

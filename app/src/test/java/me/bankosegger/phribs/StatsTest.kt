@@ -1,6 +1,7 @@
 package me.bankosegger.phribs
 
 import me.bankosegger.phribs.ui.theme.WeightUnit
+import me.bankosegger.phribs.ui.niceTicks
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -135,5 +136,37 @@ class StatsTest {
     @Test
     fun `describe converts to pounds`() {
         assertEquals("1 × 5 @ 220.5 lb", describe(Exercise("Squat", listOf(ExerciseSet(5, 100.0))), WeightUnit.LB))
+    }
+
+    private fun set(reps: Int, kg: Double) = ExerciseSet(reps, kg)
+
+    @Test
+    fun `sessions are oldest first and merge repeats within a workout`() {
+        val w = listOf(
+            Workout(2, 2000, listOf(Exercise("Bench", listOf(set(5, 70.0))))),
+            Workout(1, 1000, listOf(Exercise("Bench", listOf(set(8, 60.0))), Exercise("bench", listOf(set(12, 40.0))))),
+            Workout(3, 3000, listOf(Exercise("Squat", listOf(set(5, 100.0)))))
+        )
+        val sessions = exerciseSessions(w, "Bench")
+        assertEquals(listOf(1000L, 2000L), sessions.map { it.date })
+        assertEquals(60.0, sessions[0].topWeightKg, 0.0)
+        assertEquals(8 * 60.0 + 12 * 40.0, sessions[0].volumeKg, 0.0)
+    }
+
+    @Test
+    fun `personal record is the heaviest set, then most reps, first time hit`() {
+        val sessions = listOf(
+            ExerciseSession(1000, listOf(set(5, 80.0), set(3, 80.0))),
+            ExerciseSession(2000, listOf(set(5, 80.0))),
+            ExerciseSession(3000, listOf(set(12, 60.0)))
+        )
+        assertEquals(PersonalRecord(set(5, 80.0), 1000), personalRecord(sessions))
+        assertEquals(null, personalRecord(emptyList()))
+    }
+
+    @Test
+    fun `nice ticks are round and cover the range`() {
+        assertEquals(listOf(60.0, 65.0, 70.0, 75.0), niceTicks(61.0, 74.0))
+        assertEquals(listOf(0.0, 1.0, 2.0), niceTicks(1.0, 1.0).let { listOf(it.first(), it[1], it.last()) })
     }
 }

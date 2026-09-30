@@ -26,6 +26,7 @@ import java.util.Locale
 import me.bankosegger.phribs.data.AppDatabase
 import me.bankosegger.phribs.data.WorkoutEntity
 import me.bankosegger.phribs.data.seedTestData
+import me.bankosegger.phribs.ui.ExerciseProgressScreen
 import me.bankosegger.phribs.ui.HomeScreen
 import me.bankosegger.phribs.ui.LogWorkoutScreen
 import me.bankosegger.phribs.ui.SettingsScreen
@@ -125,8 +126,18 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
 
     var logging by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var progressExercise by remember { mutableStateOf<String?>(null) }
 
-    if (showSettings) {
+    val exercise = progressExercise
+    if (exercise != null) {
+        BackHandler { progressExercise = null }
+        ExerciseProgressScreen(
+            name = exercise,
+            workouts = workouts,
+            weightUnit = weightUnit,
+            onBack = { progressExercise = null }
+        )
+    } else if (showSettings) {
         BackHandler { showSettings = false }
         SettingsScreen(
             themeMode = themeMode,
@@ -176,6 +187,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
             weightUnit = weightUnit,
             onLog = { logging = true },
             onOpenSettings = { showSettings = true },
+            onOpenExercise = { progressExercise = it },
             onDelete = { w ->
                 scope.launch(Dispatchers.IO) {
                     workoutDao.deleteWorkoutById(w.id)
