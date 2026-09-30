@@ -2,7 +2,11 @@ package me.bankosegger.phribs
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +19,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import me.bankosegger.phribs.data.AppDatabase
 import me.bankosegger.phribs.data.ExerciseEntity
 import me.bankosegger.phribs.data.WorkoutEntity
@@ -81,6 +89,41 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         PhribsWidget().updateAll(context)
     }
 
+    fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+    fun export(uri: Uri?, format: BackupFormat) {
+        if (uri == null) return
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri, "wt")!!.bufferedWriter().use {
+                        it.write(Backup.encode(workouts, format))
+                    }
+                }.isSuccess
+            }
+            toast(if (ok) "Exported ${workouts.size} workouts" else "Export failed")
+        }
+    }
+
+    val exportJson = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(BackupFormat.JSON.mimeType)
+    ) { export(it, BackupFormat.JSON) }
+    val exportCsv = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(BackupFormat.CSV.mimeType)
+    ) { export(it, BackupFormat.CSV) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching {
+                    val text = context.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
+                    Backup.decode(text).also { workoutDao.importWorkouts(it) }.size
+                }.getOrNull()
+            }
+            toast(if (count != null) "Imported $count workouts" else "Import failed: unrecognized file")
+        }
+    }
+
     var logging by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -99,6 +142,16 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
                 weightUnit = unit
                 ThemePreferences.setWeightUnit(context, unit)
             },
+            onExport = { format ->
+                val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                val name = "phribs-$stamp.${format.extension}"
+                when (format) {
+                    BackupFormat.JSON -> exportJson.launch(name)
+                    BackupFormat.CSV -> exportCsv.launch(name)
+                }
+            },
+            // Some file pickers label CSV as text/plain or octet-stream, so don't filter too strictly.
+            onImport = { importLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
             onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
             onClearAllData = { scope.launch(Dispatchers.IO) { workoutDao.deleteAllWorkouts() } },
             onBack = { showSettings = false }

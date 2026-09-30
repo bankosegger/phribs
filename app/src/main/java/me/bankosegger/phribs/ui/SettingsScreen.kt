@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
+import me.bankosegger.phribs.BackupFormat
 import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.WeightUnit
@@ -28,6 +29,8 @@ fun SettingsScreen(
     onWeeklyGoalChange: (Int) -> Unit,
     weightUnit: WeightUnit,
     onWeightUnitChange: (WeightUnit) -> Unit,
+    onExport: (BackupFormat) -> Unit,
+    onImport: () -> Unit,
     onSeedTestData: () -> Unit,
     onClearAllData: () -> Unit,
     onBack: () -> Unit
@@ -190,6 +193,31 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            Text(
+                text = "Backup",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onExport(BackupFormat.JSON) }, modifier = Modifier.weight(1f)) {
+                    Text("Export JSON")
+                }
+                OutlinedButton(onClick = { onExport(BackupFormat.CSV) }, modifier = Modifier.weight(1f)) {
+                    Text("Export CSV")
+                }
+            }
+            OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text("Import JSON or CSV")
+            }
+            Text(
+                text = "Imported workouts are merged with existing ones.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
 
             if (BuildConfig.DEBUG) {
                 Text(

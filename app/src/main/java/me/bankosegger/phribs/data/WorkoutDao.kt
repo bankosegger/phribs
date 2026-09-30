@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import me.bankosegger.phribs.Workout
 
 @Dao
 abstract class WorkoutDao {
@@ -32,6 +33,18 @@ abstract class WorkoutDao {
     open suspend fun updateFullWorkout(workoutId: Long, exercises: List<ExerciseEntity>) {
         deleteExercisesForWorkout(workoutId)
         insertExercises(exercises)
+    }
+
+    // Replaces workouts with matching ids, so importing the same backup twice doesn't duplicate anything.
+    @Transaction
+    open suspend fun importWorkouts(workouts: List<Workout>) {
+        workouts.forEach { w ->
+            insertWorkout(WorkoutEntity(id = w.id, date = w.date))
+            deleteExercisesForWorkout(w.id)
+            insertExercises(w.exercises.map {
+                ExerciseEntity(workoutId = w.id, name = it.name, sets = it.sets, reps = it.reps, weightKg = it.weightKg)
+            })
+        }
     }
 
     @Query("DELETE FROM workouts WHERE id = :workoutId")

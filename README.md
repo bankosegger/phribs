@@ -12,6 +12,8 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - Activity heatmap for the last 18 weeks
 - Dark, light or system theme
 - Home screen widget
+- kg or lb weight unit
+- Export and import backups as JSON or CSV
 
 ## Ideas
 
@@ -25,7 +27,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - [ ] **Per-set logging:** separate reps and weight for each set
 - [ ] **Show last time:** display the previous session for an exercise while logging
 - [x] **kg/lb setting**
-- [ ] **Export/import:** JSON or CSV backup
+- [x] **Export/import:** JSON or CSV backup
 
 ### Motivation
 - [x] Streaks
