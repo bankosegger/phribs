@@ -22,12 +22,14 @@ import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.startOfMonth
 import me.bankosegger.phribs.startOfWeek
 import me.bankosegger.phribs.visitDays
+import me.bankosegger.phribs.ui.theme.WeightUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     workouts: List<Workout>,
     weeklyGoal: Int = 3,
+    weightUnit: WeightUnit = WeightUnit.KG,
     onLog: () -> Unit,
     onOpenSettings: () -> Unit,
     onDelete: (Workout) -> Unit,
@@ -161,7 +163,7 @@ fun HomeScreen(
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w = w, onDelete = onDelete, onUpdate = onUpdate)
+                    WorkoutCard(w = w, weightUnit = weightUnit, onDelete = onDelete, onUpdate = onUpdate)
                 }
             }
 

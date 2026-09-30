@@ -74,6 +74,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     }
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
+    var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
 
     // Every database change flows through here, so this keeps the widget in sync.
     LaunchedEffect(workoutsWithExercises, themeMode, weeklyGoal) {
@@ -93,6 +94,11 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
                 weeklyGoal = goal
                 ThemePreferences.setWeeklyGoal(context, goal)
             },
+            weightUnit = weightUnit,
+            onWeightUnitChange = { unit ->
+                weightUnit = unit
+                ThemePreferences.setWeightUnit(context, unit)
+            },
             onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
             onClearAllData = { scope.launch(Dispatchers.IO) { workoutDao.deleteAllWorkouts() } },
             onBack = { showSettings = false }
@@ -101,6 +107,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         BackHandler { logging = false }
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
+            weightUnit = weightUnit,
             onSave = { exercises ->
                 val now = System.currentTimeMillis()
                 scope.launch(Dispatchers.IO) {
@@ -124,6 +131,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         HomeScreen(
             workouts = workouts,
             weeklyGoal = weeklyGoal,
+            weightUnit = weightUnit,
             onLog = { logging = true },
             onOpenSettings = { showSettings = true },
             onDelete = { w ->

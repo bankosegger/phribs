@@ -17,10 +17,14 @@ import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.fmtWeight
+import me.bankosegger.phribs.ui.theme.WeightUnit
+import me.bankosegger.phribs.ui.theme.fromUnitToKg
+import me.bankosegger.phribs.ui.theme.toUnit
 
 @Composable
 fun EditWorkoutDialog(
     workout: Workout,
+    weightUnit: WeightUnit = WeightUnit.KG,
     onSave: (List<Exercise>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -44,7 +48,8 @@ fun EditWorkoutDialog(
         name = e.name
         sets = e.sets.toString()
         reps = e.reps.toString()
-        weight = if (e.weightKg > 0) fmtWeight(e.weightKg) else ""
+        val valInUnit = e.weightKg.toUnit(weightUnit)
+        weight = if (e.weightKg > 0) fmtWeight(valInUnit) else ""
     }
 
     AlertDialog(
@@ -90,7 +95,7 @@ fun EditWorkoutDialog(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(e.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                    Text(describe(e), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                                    Text(describe(e, weightUnit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                                 }
                                 IconButton(onClick = { startEditing(index, e) }) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
@@ -127,7 +132,7 @@ fun EditWorkoutDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
                     NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
-                    NumberField("Weight", weight, { weight = it }, Modifier.weight(1f))
+                    NumberField("Weight (${weightUnit.unitSymbol})", weight, { weight = it }, Modifier.weight(1f))
                 }
 
                 Row(
@@ -145,11 +150,12 @@ fun EditWorkoutDialog(
                     }
                     Button(
                         onClick = {
+                            val inputVal = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
                             val newExercise = Exercise(
                                 name = name.trim(),
                                 sets = sets.toIntOrNull() ?: 0,
                                 reps = reps.toIntOrNull() ?: 0,
-                                weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
+                                weightKg = inputVal.fromUnitToKg(weightUnit)
                             )
                             if (editingIndex != null) {
                                 editedExercises[editingIndex!!] = newExercise

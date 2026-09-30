@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.ui.theme.ThemeMode
+import me.bankosegger.phribs.ui.theme.WeightUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +26,8 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     weeklyGoal: Int,
     onWeeklyGoalChange: (Int) -> Unit,
+    weightUnit: WeightUnit,
+    onWeightUnitChange: (WeightUnit) -> Unit,
     onSeedTestData: () -> Unit,
     onClearAllData: () -> Unit,
     onBack: () -> Unit
@@ -151,6 +154,38 @@ fun SettingsScreen(
                             enabled = weeklyGoal < 7
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Increase goal")
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Units",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.selectableGroup()) {
+                    WeightUnit.entries.forEach { unit ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = unit == weightUnit,
+                                    onClick = { onWeightUnitChange(unit) },
+                                    role = Role.RadioButton
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = unit == weightUnit, onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(unit.label, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }

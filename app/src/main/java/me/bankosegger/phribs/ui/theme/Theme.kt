@@ -19,10 +19,26 @@ enum class ThemeMode(val label: String) {
     SYSTEM("System Default")
 }
 
+enum class WeightUnit(val label: String, val unitSymbol: String) {
+    KG("Kilograms (kg)", "kg"),
+    LB("Pounds (lb)", "lb")
+}
+
+fun Double.toUnit(unit: WeightUnit): Double = when (unit) {
+    WeightUnit.KG -> this
+    WeightUnit.LB -> this * 2.20462262185
+}
+
+fun Double.fromUnitToKg(unit: WeightUnit): Double = when (unit) {
+    WeightUnit.KG -> this
+    WeightUnit.LB -> this / 2.20462262185
+}
+
 object ThemePreferences {
     private const val PREFS = "app_settings"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_WEEKLY_GOAL = "weekly_goal"
+    private const val KEY_WEIGHT_UNIT = "weight_unit"
     private const val DEFAULT_WEEKLY_GOAL = 3
 
     fun getThemeMode(context: Context): ThemeMode {
@@ -48,6 +64,21 @@ object ThemePreferences {
     fun setWeeklyGoal(context: Context, goal: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit { putInt(KEY_WEEKLY_GOAL, goal) }
+    }
+
+    fun getWeightUnit(context: Context): WeightUnit {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_WEIGHT_UNIT, WeightUnit.KG.name) ?: WeightUnit.KG.name
+        return try {
+            WeightUnit.valueOf(raw)
+        } catch (_: Exception) {
+            WeightUnit.KG
+        }
+    }
+
+    fun setWeightUnit(context: Context, unit: WeightUnit) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putString(KEY_WEIGHT_UNIT, unit.name) }
     }
 }
 

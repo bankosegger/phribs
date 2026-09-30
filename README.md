@@ -24,7 +24,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 ### Quality of life
 - [ ] **Per-set logging:** separate reps and weight for each set
 - [ ] **Show last time:** display the previous session for an exercise while logging
-- [ ] **kg/lb setting**
+- [x] **kg/lb setting**
 - [ ] **Export/import:** JSON or CSV backup
 
 ### Motivation

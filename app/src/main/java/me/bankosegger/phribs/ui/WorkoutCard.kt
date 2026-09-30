@@ -25,11 +25,13 @@ import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.getDisplayFormat
+import me.bankosegger.phribs.ui.theme.WeightUnit
 import java.util.Date
 
 @Composable
 fun WorkoutCard(
     w: Workout,
+    weightUnit: WeightUnit = WeightUnit.KG,
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
 ) {
@@ -125,7 +127,7 @@ fun WorkoutCard(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                text = describe(e),
+                                text = describe(e, weightUnit),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.secondary,
                                 fontWeight = FontWeight.SemiBold
@@ -182,6 +184,7 @@ fun WorkoutCard(
     if (editingWorkout) {
         EditWorkoutDialog(
             workout = w,
+            weightUnit = weightUnit,
             onSave = { updatedExercises ->
                 editingWorkout = false
                 onUpdate(w, updatedExercises)

@@ -24,11 +24,15 @@ import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.fmtWeight
+import me.bankosegger.phribs.ui.theme.WeightUnit
+import me.bankosegger.phribs.ui.theme.fromUnitToKg
+import me.bankosegger.phribs.ui.theme.toUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogWorkoutScreen(
     knownExercises: List<String>,
+    weightUnit: WeightUnit = WeightUnit.KG,
     onSave: (List<Exercise>) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -52,7 +56,8 @@ fun LogWorkoutScreen(
         name = e.name
         sets = e.sets.toString()
         reps = e.reps.toString()
-        weight = if (e.weightKg > 0) fmtWeight(e.weightKg) else ""
+        val valInUnit = e.weightKg.toUnit(weightUnit)
+        weight = if (e.weightKg > 0) fmtWeight(valInUnit) else ""
     }
 
     Scaffold(
@@ -141,7 +146,7 @@ fun LogWorkoutScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
                             NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
-                            NumberField("Weight (kg)", weight, { weight = it }, Modifier.weight(1f))
+                            NumberField("Weight (${weightUnit.unitSymbol})", weight, { weight = it }, Modifier.weight(1f))
                         }
 
                         Row(
@@ -159,11 +164,12 @@ fun LogWorkoutScreen(
                             }
                             Button(
                                 onClick = {
+                                    val inputVal = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
                                     val newExercise = Exercise(
                                         name = name.trim(),
                                         sets = sets.toIntOrNull() ?: 0,
                                         reps = reps.toIntOrNull() ?: 0,
-                                        weightKg = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
+                                        weightKg = inputVal.fromUnitToKg(weightUnit)
                                     )
                                     if (editingIndex != null) {
                                         added[editingIndex!!] = newExercise
@@ -225,7 +231,7 @@ fun LogWorkoutScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = describe(e),
+                                    text = describe(e, weightUnit),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
