@@ -11,6 +11,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - Weekly streak (current and best)
 - Activity heatmap for the last 18 weeks
 - Dark, light or system theme
+- Home screen widget
 
 ## Ideas
 
@@ -30,7 +31,7 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - [x] Streaks
 - [x] Calendar heatmap
 - [ ] **Weekly goal:** e.g. 3 visits per week, shown against the This Week stat
-- [ ] **Home screen widget:** this week's visits
+- [x] **Home screen widget:** this week's visits and streak
 
 ### Structural
 - [ ] Move navigation to Navigation Compose instead of boolean screen flags

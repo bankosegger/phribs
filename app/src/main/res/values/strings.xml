@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">phribs</string>
+    <string name="widget_description">This week\'s gym visits and your streak</string>
 </resources>

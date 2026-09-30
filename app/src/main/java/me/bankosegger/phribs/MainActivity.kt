@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.bankosegger.phribs.data.AppDatabase
@@ -25,6 +26,7 @@ import me.bankosegger.phribs.ui.theme.PhribsTheme
 import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.ThemePreferences
 import me.bankosegger.phribs.ui.theme.isDark
+import me.bankosegger.phribs.widget.PhribsWidget
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +71,11 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     val workoutsWithExercises by workoutDao.getAllWorkouts().collectAsState(initial = emptyList())
     val workouts = remember(workoutsWithExercises) {
         workoutsWithExercises.map { it.toDomainModel() }
+    }
+
+    // Every database change flows through here, so this keeps the widget in sync.
+    LaunchedEffect(workoutsWithExercises, themeMode) {
+        PhribsWidget().updateAll(context)
     }
 
     var logging by remember { mutableStateOf(false) }
