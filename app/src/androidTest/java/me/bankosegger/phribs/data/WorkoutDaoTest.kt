@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import me.bankosegger.phribs.Exercise
+import me.bankosegger.phribs.ExerciseSet
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,14 +32,13 @@ class WorkoutDaoTest {
     @After
     fun closeDb() = db.close()
 
-    private fun exercise(workoutId: Long, name: String, sets: Int = 3) =
-        ExerciseEntity(workoutId = workoutId, name = name, sets = sets, reps = 10, weightKg = 50.0)
+    private fun exercise(name: String, sets: Int = 3) = Exercise(name, List(sets) { ExerciseSet(10, 50.0) })
 
     private suspend fun all() = dao.getAllWorkouts().first()
 
     @Test
     fun insertedWorkoutIsReturnedWithExercises() = runBlocking {
-        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise(1, "Squat"), exercise(1, "Bench")))
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise("Squat"), exercise("Bench")))
 
         val result = all().single().toDomainModel()
         assertEquals(1000L, result.date)
@@ -55,20 +56,30 @@ class WorkoutDaoTest {
 
     @Test
     fun updateReplacesExercises() = runBlocking {
-        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise(1, "Squat"), exercise(1, "Bench")))
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise("Squat"), exercise("Bench")))
 
-        dao.updateFullWorkout(1, listOf(exercise(1, "Deadlift", sets = 5)))
+        dao.updateFullWorkout(1, listOf(exercise("Deadlift", sets = 5)))
 
-        val exercises = all().single().exercises
+        val exercises = all().single().toDomainModel().exercises
         assertEquals(1, exercises.size)
         assertEquals("Deadlift", exercises[0].name)
-        assertEquals(5, exercises[0].sets)
+        assertEquals(5, exercises[0].sets.size)
+    }
+
+    @Test
+    fun setsKeepTheirOrderAndValues() = runBlocking {
+        val sets = listOf(ExerciseSet(10, 60.0), ExerciseSet(8, 62.5), ExerciseSet(6, 65.0))
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(Exercise("Bench", sets), exercise("Squat")))
+
+        val result = all().single().toDomainModel()
+        assertEquals(listOf("Bench", "Squat"), result.exercises.map { it.name })
+        assertEquals(sets, result.exercises[0].sets)
     }
 
     @Test
     fun deletingWorkoutAlsoDeletesItsExercises() = runBlocking {
-        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise(1, "Squat")))
-        dao.insertFullWorkout(WorkoutEntity(2, 2000), listOf(exercise(2, "Bench")))
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise("Squat")))
+        dao.insertFullWorkout(WorkoutEntity(2, 2000), listOf(exercise("Bench")))
 
         dao.deleteWorkoutById(1)
         // Re-inserting the same id would pick up orphaned exercises if the cascade didn't run.
@@ -76,13 +87,13 @@ class WorkoutDaoTest {
 
         val byId = all().associateBy { it.workout.id }
         assertTrue(byId.getValue(1).exercises.isEmpty())
-        assertEquals("Bench", byId.getValue(2).exercises.single().name)
+        assertEquals("Bench", byId.getValue(2).exercises.single().exercise.name)
     }
 
     @Test
     fun deleteAllRemovesEverything() = runBlocking {
-        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise(1, "Squat")))
-        dao.insertFullWorkout(WorkoutEntity(2, 2000), listOf(exercise(2, "Bench")))
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise("Squat")))
+        dao.insertFullWorkout(WorkoutEntity(2, 2000), listOf(exercise("Bench")))
 
         dao.deleteAllWorkouts()
 

@@ -1,5 +1,7 @@
 package me.bankosegger.phribs.data
 
+import me.bankosegger.phribs.Exercise
+import me.bankosegger.phribs.ExerciseSet
 import java.util.Calendar
 import kotlin.random.Random
 
@@ -54,13 +56,13 @@ suspend fun WorkoutDao.seedTestData(weeks: Int = 20, random: Random = Random.Def
             val routine = routines[routineIndex++ % routines.size]
             val exercises = routine.filter { random.nextInt(6) != 0 }.ifEmpty { routine }.map { t ->
                 val weight = t.startKg + t.gainPerWeekKg * week
-                ExerciseEntity(
-                    workoutId = date,
-                    name = t.name,
-                    sets = (t.sets + random.nextInt(-1, 2)).coerceAtLeast(1),
-                    reps = (t.reps + random.nextInt(-2, 3)).coerceAtLeast(1),
-                    weightKg = (weight / 1.25).toInt() * 1.25
-                )
+                val weightKg = (weight / 1.25).toInt() * 1.25
+                val reps = (t.reps + random.nextInt(-2, 3)).coerceAtLeast(1)
+                // Later sets sometimes lose a rep or two, like real fatigue.
+                val sets = List((t.sets + random.nextInt(-1, 2)).coerceAtLeast(1)) { i ->
+                    ExerciseSet(if (i > 0 && random.nextInt(3) == 0) (reps - i).coerceAtLeast(1) else reps, weightKg)
+                }
+                Exercise(t.name, sets)
             }
             insertFullWorkout(WorkoutEntity(id = date, date = date), exercises)
         }

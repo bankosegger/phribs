@@ -5,8 +5,12 @@ import org.junit.Test
 
 class BackupTest {
     private val workouts = listOf(
-        Workout(1L, 1000L, listOf(Exercise("Bench Press", 4, 8, 62.5), Exercise("Pull-ups", 3, 8, 0.0))),
-        Workout(2L, 2000L, listOf(Exercise("Curl, \"hammer\"", 3, 12, 12.25)))
+        Workout(1L, 1000L, listOf(
+            Exercise("Bench Press", listOf(ExerciseSet(8, 60.0), ExerciseSet(8, 62.5), ExerciseSet(6, 65.0))),
+            Exercise("Pull-ups", listOf(ExerciseSet(8, 0.0), ExerciseSet(7, 0.0))),
+            Exercise("Bench Press", listOf(ExerciseSet(12, 40.0)))
+        )),
+        Workout(2L, 2000L, listOf(Exercise("Curl, \"hammer\"", listOf(ExerciseSet(12, 12.25)))))
     )
 
     @Test

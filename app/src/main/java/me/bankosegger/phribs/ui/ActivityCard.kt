@@ -24,7 +24,7 @@ fun ActivityCard(workouts: List<Workout>) {
     val streaks = remember(workouts) { weeklyStreaks(workouts) }
     val setsPerDay = remember(workouts) {
         workouts.groupBy { dayKeyFormat.format(Date(it.date)) }
-            .mapValues { (_, ws) -> ws.sumOf { w -> w.exercises.sumOf { it.sets } } }
+            .mapValues { (_, ws) -> ws.sumOf { w -> w.exercises.sumOf { it.sets.size } } }
     }
     // Columns are weeks, rows are days; null marks days in the future.
     val grid = remember(workouts) {

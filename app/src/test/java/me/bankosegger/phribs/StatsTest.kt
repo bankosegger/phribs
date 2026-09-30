@@ -1,5 +1,6 @@
 package me.bankosegger.phribs
 
+import me.bankosegger.phribs.ui.theme.WeightUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -115,7 +116,24 @@ class StatsTest {
 
     @Test
     fun `describe includes weight only when set`() {
-        assertEquals("3 × 10 @ 62.5 kg", describe(Exercise("Bench", 3, 10, 62.5)))
-        assertEquals("3 × 8", describe(Exercise("Pull-ups", 3, 8, 0.0)))
+        assertEquals("3 × 10 @ 62.5 kg", describe(Exercise("Bench", List(3) { ExerciseSet(10, 62.5) })))
+        assertEquals("3 × 8", describe(Exercise("Pull-ups", List(3) { ExerciseSet(8, 0.0) })))
+    }
+
+    @Test
+    fun `describe lists reps when only reps vary`() {
+        val e = Exercise("Bench", listOf(ExerciseSet(10, 60.0), ExerciseSet(8, 60.0), ExerciseSet(6, 60.0)))
+        assertEquals("10, 8, 6 @ 60 kg", describe(e))
+    }
+
+    @Test
+    fun `describe lists each set when weights vary`() {
+        val e = Exercise("Bench", listOf(ExerciseSet(10, 60.0), ExerciseSet(8, 62.5), ExerciseSet(6, 0.0)))
+        assertEquals("10 @ 60, 8 @ 62.5, 6 kg", describe(e))
+    }
+
+    @Test
+    fun `describe converts to pounds`() {
+        assertEquals("1 × 5 @ 220.5 lb", describe(Exercise("Squat", listOf(ExerciseSet(5, 100.0))), WeightUnit.LB))
     }
 }

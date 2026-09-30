@@ -23,10 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.describe
-import me.bankosegger.phribs.fmtWeight
 import me.bankosegger.phribs.ui.theme.WeightUnit
-import me.bankosegger.phribs.ui.theme.fromUnitToKg
-import me.bankosegger.phribs.ui.theme.toUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,25 +36,20 @@ fun LogWorkoutScreen(
     val added = remember { mutableStateListOf<Exercise>() }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
-    var sets by remember { mutableStateOf("3") }
-    var reps by remember { mutableStateOf("10") }
-    var weight by remember { mutableStateOf("") }
+    val sets = remember { mutableStateListOf(SetInput()) }
 
     fun clearInput() {
         editingIndex = null
         name = ""
-        sets = "3"
-        reps = "10"
-        weight = ""
+        sets.clear()
+        sets += SetInput()
     }
 
     fun startEditing(index: Int, e: Exercise) {
         editingIndex = index
         name = e.name
-        sets = e.sets.toString()
-        reps = e.reps.toString()
-        val valInUnit = e.weightKg.toUnit(weightUnit)
-        weight = if (e.weightKg > 0) fmtWeight(valInUnit) else ""
+        sets.clear()
+        sets += e.toSetInputs(weightUnit).ifEmpty { listOf(SetInput()) }
     }
 
     Scaffold(
@@ -143,11 +135,7 @@ fun LogWorkoutScreen(
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
-                            NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
-                            NumberField("Weight (${weightUnit.unitSymbol})", weight, { weight = it }, Modifier.weight(1f))
-                        }
+                        SetsEditor(sets, weightUnit)
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -164,13 +152,7 @@ fun LogWorkoutScreen(
                             }
                             Button(
                                 onClick = {
-                                    val inputVal = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
-                                    val newExercise = Exercise(
-                                        name = name.trim(),
-                                        sets = sets.toIntOrNull() ?: 0,
-                                        reps = reps.toIntOrNull() ?: 0,
-                                        weightKg = inputVal.fromUnitToKg(weightUnit)
-                                    )
+                                    val newExercise = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
                                     if (editingIndex != null) {
                                         added[editingIndex!!] = newExercise
                                     } else {

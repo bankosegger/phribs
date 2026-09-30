@@ -10,7 +10,7 @@ enum class BackupFormat(val mimeType: String, val extension: String) {
 
 object Backup {
     private const val VERSION = 1
-    private val CSV_HEADER = listOf("workout_id", "date", "exercise", "sets", "reps", "weight_kg")
+    private val CSV_HEADER = listOf("workout_id", "date", "exercise", "set", "reps", "weight_kg")
 
     fun encode(workouts: List<Workout>, format: BackupFormat): String = when (format) {
         BackupFormat.JSON -> toJson(workouts)
@@ -25,10 +25,9 @@ object Backup {
         workouts.forEach { w ->
             val ex = JSONArray()
             w.exercises.forEach { e ->
-                ex.put(
-                    JSONObject().put("name", e.name).put("sets", e.sets)
-                        .put("reps", e.reps).put("weightKg", e.weightKg)
-                )
+                val sets = JSONArray()
+                e.sets.forEach { sets.put(JSONObject().put("reps", it.reps).put("weightKg", it.weightKg)) }
+                ex.put(JSONObject().put("name", e.name).put("sets", sets))
             }
             arr.put(JSONObject().put("id", w.id).put("date", w.date).put("exercises", ex))
         }
@@ -45,7 +44,11 @@ object Backup {
                 date = w.getLong("date"),
                 exercises = List(ex.length()) { j ->
                     val e = ex.getJSONObject(j)
-                    Exercise(e.getString("name"), e.getInt("sets"), e.getInt("reps"), e.getDouble("weightKg"))
+                    val sets = e.getJSONArray("sets")
+                    Exercise(e.getString("name"), List(sets.length()) { k ->
+                        val s = sets.getJSONObject(k)
+                        ExerciseSet(s.getInt("reps"), s.getDouble("weightKg"))
+                    })
                 }
             )
         }
@@ -55,10 +58,12 @@ object Backup {
         appendLine(CSV_HEADER.joinToString(","))
         workouts.forEach { w ->
             w.exercises.forEach { e ->
-                appendLine(
-                    listOf(w.id.toString(), w.date.toString(), csvEscape(e.name), e.sets.toString(),
-                        e.reps.toString(), e.weightKg.toString()).joinToString(",")
-                )
+                e.sets.forEachIndexed { i, s ->
+                    appendLine(
+                        listOf(w.id.toString(), w.date.toString(), csvEscape(e.name), (i + 1).toString(),
+                            s.reps.toString(), s.weightKg.toString()).joinToString(",")
+                    )
+                }
             }
         }
     }
@@ -72,9 +77,24 @@ object Backup {
                 Workout(
                     id = id,
                     date = group.first()[1].toLong(),
-                    exercises = group.map { Exercise(it[2], it[3].toInt(), it[4].toInt(), it[5].toDouble()) }
+                    exercises = groupExercises(group)
                 )
             }
+    }
+
+    // Rows for one exercise are consecutive; set 1 starts a new one, so a workout can repeat an exercise name.
+    private fun groupExercises(rows: List<List<String>>): List<Exercise> {
+        val exercises = mutableListOf<Exercise>()
+        rows.forEach { row ->
+            val set = ExerciseSet(row[4].toInt(), row[5].toDouble())
+            val last = exercises.lastOrNull()
+            if (last != null && last.name == row[2] && row[3].toInt() != 1) {
+                exercises[exercises.lastIndex] = last.copy(sets = last.sets + set)
+            } else {
+                exercises += Exercise(row[2], listOf(set))
+            }
+        }
+        return exercises
     }
 
     private fun csvEscape(s: String): String =

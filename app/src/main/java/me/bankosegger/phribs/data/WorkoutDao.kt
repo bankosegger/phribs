@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.Workout
 
 @Dao
@@ -17,22 +18,34 @@ abstract class WorkoutDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertWorkout(workout: WorkoutEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    abstract suspend fun insertExercises(exercises: List<ExerciseEntity>)
+    @Insert
+    abstract suspend fun insertExercise(exercise: ExerciseEntity): Long
+
+    @Insert
+    abstract suspend fun insertSets(sets: List<ExerciseSetEntity>)
+
+    private suspend fun insertExercises(workoutId: Long, exercises: List<Exercise>) {
+        exercises.forEach { e ->
+            val exerciseId = insertExercise(ExerciseEntity(workoutId = workoutId, name = e.name))
+            insertSets(e.sets.mapIndexed { i, s ->
+                ExerciseSetEntity(exerciseId = exerciseId, position = i, reps = s.reps, weightKg = s.weightKg)
+            })
+        }
+    }
 
     @Transaction
-    open suspend fun insertFullWorkout(workout: WorkoutEntity, exercises: List<ExerciseEntity>) {
+    open suspend fun insertFullWorkout(workout: WorkoutEntity, exercises: List<Exercise>) {
         insertWorkout(workout)
-        insertExercises(exercises)
+        insertExercises(workout.id, exercises)
     }
 
     @Query("DELETE FROM exercises WHERE workoutId = :workoutId")
     abstract suspend fun deleteExercisesForWorkout(workoutId: Long)
 
     @Transaction
-    open suspend fun updateFullWorkout(workoutId: Long, exercises: List<ExerciseEntity>) {
+    open suspend fun updateFullWorkout(workoutId: Long, exercises: List<Exercise>) {
         deleteExercisesForWorkout(workoutId)
-        insertExercises(exercises)
+        insertExercises(workoutId, exercises)
     }
 
     // Replaces workouts with matching ids, so importing the same backup twice doesn't duplicate anything.
@@ -41,9 +54,7 @@ abstract class WorkoutDao {
         workouts.forEach { w ->
             insertWorkout(WorkoutEntity(id = w.id, date = w.date))
             deleteExercisesForWorkout(w.id)
-            insertExercises(w.exercises.map {
-                ExerciseEntity(workoutId = w.id, name = it.name, sets = it.sets, reps = it.reps, weightKg = it.weightKg)
-            })
+            insertExercises(w.id, w.exercises)
         }
     }
 

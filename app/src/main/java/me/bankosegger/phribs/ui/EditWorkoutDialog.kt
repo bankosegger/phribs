@@ -1,7 +1,7 @@
 package me.bankosegger.phribs.ui
 
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -16,10 +16,7 @@ import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.describe
-import me.bankosegger.phribs.fmtWeight
 import me.bankosegger.phribs.ui.theme.WeightUnit
-import me.bankosegger.phribs.ui.theme.fromUnitToKg
-import me.bankosegger.phribs.ui.theme.toUnit
 
 @Composable
 fun EditWorkoutDialog(
@@ -31,25 +28,20 @@ fun EditWorkoutDialog(
     val editedExercises = remember { mutableStateListOf<Exercise>().apply { addAll(workout.exercises) } }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
-    var sets by remember { mutableStateOf("3") }
-    var reps by remember { mutableStateOf("10") }
-    var weight by remember { mutableStateOf("") }
+    val sets = remember { mutableStateListOf(SetInput()) }
 
     fun clearInput() {
         editingIndex = null
         name = ""
-        sets = "3"
-        reps = "10"
-        weight = ""
+        sets.clear()
+        sets += SetInput()
     }
 
     fun startEditing(index: Int, e: Exercise) {
         editingIndex = index
         name = e.name
-        sets = e.sets.toString()
-        reps = e.reps.toString()
-        val valInUnit = e.weightKg.toUnit(weightUnit)
-        weight = if (e.weightKg > 0) fmtWeight(valInUnit) else ""
+        sets.clear()
+        sets += e.toSetInputs(weightUnit).ifEmpty { listOf(SetInput()) }
     }
 
     AlertDialog(
@@ -71,15 +63,13 @@ fun EditWorkoutDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 450.dp),
+                    .heightIn(max = 450.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Exercise List
-                LazyColumn(
-                    modifier = Modifier.weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(editedExercises) { index, e ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    editedExercises.forEachIndexed { index, e ->
                         OutlinedCard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
@@ -129,11 +119,7 @@ fun EditWorkoutDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    NumberField("Sets", sets, { sets = it }, Modifier.weight(1f))
-                    NumberField("Reps", reps, { reps = it }, Modifier.weight(1f))
-                    NumberField("Weight (${weightUnit.unitSymbol})", weight, { weight = it }, Modifier.weight(1f))
-                }
+                SetsEditor(sets, weightUnit)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -150,13 +136,7 @@ fun EditWorkoutDialog(
                     }
                     Button(
                         onClick = {
-                            val inputVal = weight.replace(',', '.').toDoubleOrNull() ?: 0.0
-                            val newExercise = Exercise(
-                                name = name.trim(),
-                                sets = sets.toIntOrNull() ?: 0,
-                                reps = reps.toIntOrNull() ?: 0,
-                                weightKg = inputVal.fromUnitToKg(weightUnit)
-                            )
+                            val newExercise = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
                             if (editingIndex != null) {
                                 editedExercises[editingIndex!!] = newExercise
                             } else {

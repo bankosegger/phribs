@@ -24,7 +24,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import me.bankosegger.phribs.data.AppDatabase
-import me.bankosegger.phribs.data.ExerciseEntity
 import me.bankosegger.phribs.data.WorkoutEntity
 import me.bankosegger.phribs.data.seedTestData
 import me.bankosegger.phribs.ui.HomeScreen
@@ -164,17 +163,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
             onSave = { exercises ->
                 val now = System.currentTimeMillis()
                 scope.launch(Dispatchers.IO) {
-                    val workoutEntity = WorkoutEntity(id = now, date = now)
-                    val exerciseEntities = exercises.map { e ->
-                        ExerciseEntity(
-                            workoutId = now,
-                            name = e.name,
-                            sets = e.sets,
-                            reps = e.reps,
-                            weightKg = e.weightKg
-                        )
-                    }
-                    workoutDao.insertFullWorkout(workoutEntity, exerciseEntities)
+                    workoutDao.insertFullWorkout(WorkoutEntity(id = now, date = now), exercises)
                 }
                 logging = false
             },
@@ -194,16 +183,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
             },
             onUpdate = { w, newExercises ->
                 scope.launch(Dispatchers.IO) {
-                    val exerciseEntities = newExercises.map { e ->
-                        ExerciseEntity(
-                            workoutId = w.id,
-                            name = e.name,
-                            sets = e.sets,
-                            reps = e.reps,
-                            weightKg = e.weightKg
-                        )
-                    }
-                    workoutDao.updateFullWorkout(w.id, exerciseEntities)
+                    workoutDao.updateFullWorkout(w.id, newExercises)
                 }
             }
         )
