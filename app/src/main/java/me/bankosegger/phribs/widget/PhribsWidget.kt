@@ -42,6 +42,7 @@ class PhribsWidget : GlanceAppWidget() {
             .map { it.toDomainModel() }
         val visits = visitDays(workouts, startOfWeek())
         val streak = weeklyStreaks(workouts).current
+        val weeklyGoal = ThemePreferences.getWeeklyGoal(context)
         val colors = when (ThemePreferences.getThemeMode(context)) {
             ThemeMode.DARK -> ColorProviders(DarkColorScheme)
             ThemeMode.LIGHT -> ColorProviders(LightColorScheme)
@@ -50,14 +51,15 @@ class PhribsWidget : GlanceAppWidget() {
 
         provideContent {
             GlanceTheme(colors = colors) {
-                WidgetContent(visits, streak)
+                WidgetContent(visits, streak, weeklyGoal)
             }
         }
     }
 }
 
 @Composable
-private fun WidgetContent(visits: Int, streak: Int) {
+private fun WidgetContent(visits: Int, streak: Int, weeklyGoal: Int) {
+    val visitText = if (weeklyGoal > 0) "$visits / $weeklyGoal" else "$visits"
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -78,15 +80,15 @@ private fun WidgetContent(visits: Int, streak: Int) {
         )
         Spacer(GlanceModifier.height(4.dp))
         Text(
-            text = "$visits",
+            text = visitText,
             style = TextStyle(
                 color = GlanceTheme.colors.primary,
-                fontSize = 40.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold
             )
         )
         Text(
-            text = if (visits == 1) "visit this week" else "visits this week",
+            text = if (weeklyGoal > 0) "weekly goal" else if (visits == 1) "visit this week" else "visits this week",
             style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp)
         )
         Spacer(GlanceModifier.height(6.dp))

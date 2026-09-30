@@ -30,9 +30,9 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 ### Motivation
 - [x] Streaks
 - [x] Calendar heatmap
-- [ ] **Weekly goal:** e.g. 3 visits per week, shown against the This Week stat
+- [x] **Weekly goal:** e.g. 3 visits per week, shown against the This Week stat
 - [x] **Home screen widget:** this week's visits and streak
 
 ### Structural
 - [ ] Move navigation to Navigation Compose instead of boolean screen flags
-- [ ] Split `MainActivity.kt` into one file per screen
+- [x] Split `MainActivity.kt` into one file per screen

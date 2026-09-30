@@ -5,6 +5,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +23,8 @@ import me.bankosegger.phribs.ui.theme.ThemeMode
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
+    weeklyGoal: Int,
+    onWeeklyGoalChange: (Int) -> Unit,
     onSeedTestData: () -> Unit,
     onClearAllData: () -> Unit,
     onBack: () -> Unit
@@ -90,6 +94,63 @@ fun SettingsScreen(
                             RadioButton(selected = mode == themeMode, onClick = null)
                             Spacer(Modifier.width(16.dp))
                             Text(mode.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Weekly Goal",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Target visits per week",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Shown against 'This Week' stats",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(
+                            onClick = { if (weeklyGoal > 1) onWeeklyGoalChange(weeklyGoal - 1) },
+                            enabled = weeklyGoal > 1
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease goal")
+                        }
+                        Text(
+                            text = "$weeklyGoal",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                        IconButton(
+                            onClick = { if (weeklyGoal < 7) onWeeklyGoalChange(weeklyGoal + 1) },
+                            enabled = weeklyGoal < 7
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase goal")
                         }
                     }
                 }

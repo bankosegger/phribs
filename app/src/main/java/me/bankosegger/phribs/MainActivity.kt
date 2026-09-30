@@ -73,8 +73,10 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         workoutsWithExercises.map { it.toDomainModel() }
     }
 
+    var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
+
     // Every database change flows through here, so this keeps the widget in sync.
-    LaunchedEffect(workoutsWithExercises, themeMode) {
+    LaunchedEffect(workoutsWithExercises, themeMode, weeklyGoal) {
         PhribsWidget().updateAll(context)
     }
 
@@ -86,6 +88,11 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
         SettingsScreen(
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
+            weeklyGoal = weeklyGoal,
+            onWeeklyGoalChange = { goal ->
+                weeklyGoal = goal
+                ThemePreferences.setWeeklyGoal(context, goal)
+            },
             onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
             onClearAllData = { scope.launch(Dispatchers.IO) { workoutDao.deleteAllWorkouts() } },
             onBack = { showSettings = false }
@@ -116,6 +123,7 @@ fun GymApp(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     } else {
         HomeScreen(
             workouts = workouts,
+            weeklyGoal = weeklyGoal,
             onLog = { logging = true },
             onOpenSettings = { showSettings = true },
             onDelete = { w ->

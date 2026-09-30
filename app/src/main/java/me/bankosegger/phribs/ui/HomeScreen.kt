@@ -27,6 +27,7 @@ import me.bankosegger.phribs.visitDays
 @Composable
 fun HomeScreen(
     workouts: List<Workout>,
+    weeklyGoal: Int = 3,
     onLog: () -> Unit,
     onOpenSettings: () -> Unit,
     onDelete: (Workout) -> Unit,
@@ -85,7 +86,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    StatCard("This Week", visitDays(workouts, startOfWeek()), Modifier.weight(1f))
+                    val thisWeekVisits = visitDays(workouts, startOfWeek())
+                    val thisWeekText = if (weeklyGoal > 0) "$thisWeekVisits / $weeklyGoal" else "$thisWeekVisits"
+                    StatCard("This Week", thisWeekText, Modifier.weight(1f))
                     StatCard("This Month", visitDays(workouts, startOfMonth()), Modifier.weight(1f))
                     StatCard("All Time", visitDays(workouts), Modifier.weight(1f))
                 }
@@ -183,7 +186,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
     OutlinedCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -194,21 +197,28 @@ fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 8.dp),
+                .padding(vertical = 14.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = "$value",
-                style = MaterialTheme.typography.headlineLarge,
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
     }
+}
+
+@Composable
+fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
+    StatCard(label, value.toString(), modifier)
 }

@@ -22,6 +22,8 @@ enum class ThemeMode(val label: String) {
 object ThemePreferences {
     private const val PREFS = "app_settings"
     private const val KEY_THEME = "theme_mode"
+    private const val KEY_WEEKLY_GOAL = "weekly_goal"
+    private const val DEFAULT_WEEKLY_GOAL = 3
 
     fun getThemeMode(context: Context): ThemeMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -36,6 +38,16 @@ object ThemePreferences {
     fun setThemeMode(context: Context, mode: ThemeMode) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit { putString(KEY_THEME, mode.name) }
+    }
+
+    fun getWeeklyGoal(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_WEEKLY_GOAL, DEFAULT_WEEKLY_GOAL)
+    }
+
+    fun setWeeklyGoal(context: Context, goal: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putInt(KEY_WEEKLY_GOAL, goal) }
     }
 }
 
