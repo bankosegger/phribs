@@ -23,6 +23,7 @@ import me.bankosegger.phribs.ui.theme.WeightUnit
 fun EditWorkoutDialog(
     workout: Workout,
     weightUnit: WeightUnit = WeightUnit.KG,
+    exerciseNames: List<String> = emptyList(),
     onSave: (List<Exercise>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -30,6 +31,13 @@ fun EditWorkoutDialog(
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
     val sets = remember { mutableStateListOf(SetInput()) }
+    val exerciseSuggestions = remember(name, exerciseNames, editingIndex) {
+        if (editingIndex != null || name.isBlank()) emptyList()
+        else exerciseNames
+            .filter { it.contains(name.trim(), ignoreCase = true) }
+            .filterNot { it.equals(name.trim(), ignoreCase = true) }
+            .take(5)
+    }
 
     fun clearInput() {
         editingIndex = null
@@ -123,6 +131,25 @@ fun EditWorkoutDialog(
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (exerciseSuggestions.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Exercise suggestions",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        exerciseSuggestions.forEach { suggestion ->
+                            TextButton(
+                                onClick = { name = suggestion },
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text(suggestion, modifier = Modifier.fillMaxWidth())
+                            }
+                        }
+                    }
+                }
 
                 SetsEditor(sets, weightUnit)
 

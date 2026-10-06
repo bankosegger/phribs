@@ -34,6 +34,7 @@ fun WorkoutCard(
     w: Workout,
     weightUnit: WeightUnit = WeightUnit.KG,
     records: Set<String> = emptySet(),
+    exerciseNames: List<String> = emptyList(),
     onOpenExercise: (String) -> Unit = {},
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
@@ -200,6 +201,7 @@ fun WorkoutCard(
         EditWorkoutDialog(
             workout = w,
             weightUnit = weightUnit,
+            exerciseNames = exerciseNames,
             onSave = { updatedExercises ->
                 editingWorkout = false
                 onUpdate(w, updatedExercises)

@@ -31,6 +31,7 @@ import me.bankosegger.phribs.ui.theme.WeightUnit
 @Composable
 fun LogWorkoutScreen(
     knownExercises: List<String>,
+    catalogExerciseNames: List<String> = emptyList(),
     previousBests: Map<String, ExerciseSet> = emptyMap(),
     weightUnit: WeightUnit = WeightUnit.KG,
     onSave: (List<Exercise>) -> Unit,
@@ -40,6 +41,13 @@ fun LogWorkoutScreen(
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
     val sets = remember { mutableStateListOf(SetInput()) }
+    val exerciseSuggestions = remember(name, catalogExerciseNames, editingIndex) {
+        if (editingIndex != null || name.isBlank()) emptyList()
+        else catalogExerciseNames
+            .filter { it.contains(name.trim(), ignoreCase = true) }
+            .filterNot { it.equals(name.trim(), ignoreCase = true) }
+            .take(5)
+    }
 
     fun clearInput() {
         editingIndex = null
@@ -111,6 +119,25 @@ fun LogWorkoutScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        if (exerciseSuggestions.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Exercise suggestions",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                exerciseSuggestions.forEach { suggestion ->
+                                    TextButton(
+                                        onClick = { name = suggestion },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(suggestion, modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                            }
+                        }
 
                         if (knownExercises.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

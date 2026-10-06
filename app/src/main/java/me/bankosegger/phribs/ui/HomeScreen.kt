@@ -31,6 +31,7 @@ fun HomeScreen(
     workouts: List<Workout>,
     weeklyGoal: Int = 3,
     weightUnit: WeightUnit = WeightUnit.KG,
+    catalogExerciseNames: List<String> = emptyList(),
     onLog: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenExercise: (String) -> Unit,
@@ -39,6 +40,12 @@ fun HomeScreen(
 ) {
     val listState = rememberLazyListState()
     val records = remember(workouts) { newRecords(workouts) }
+    val exerciseNames = remember(workouts, catalogExerciseNames) {
+        val recent = workouts.sortedByDescending { it.date }
+            .flatMap { it.exercises }
+            .map { it.name }
+        (recent + catalogExerciseNames).distinctBy { it.trim().lowercase() }
+    }
     // Only the top of the list shows the full label, so the pill doesn't cover workout cards.
     val fabExpanded by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
@@ -166,7 +173,7 @@ fun HomeScreen(
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w = w, weightUnit = weightUnit, records = records[w.id].orEmpty(), onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
+                    WorkoutCard(w = w, weightUnit = weightUnit, records = records[w.id].orEmpty(), exerciseNames = exerciseNames, onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
                 }
             }
 

@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import me.bankosegger.phribs.data.AppDatabase
+import me.bankosegger.phribs.data.loadExerciseNames
 import me.bankosegger.phribs.data.WorkoutEntity
 import me.bankosegger.phribs.data.seedTestData
 import me.bankosegger.phribs.ui.ExerciseProgressScreen
@@ -91,6 +92,7 @@ fun GymApp(
     val workouts = remember(workoutsWithExercises) {
         workoutsWithExercises.map { it.toDomainModel() }
     }
+    val catalogExerciseNames = remember { loadExerciseNames(context) }
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
@@ -183,6 +185,7 @@ fun GymApp(
         BackHandler { logging = false }
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
+            catalogExerciseNames = catalogExerciseNames,
             previousBests = remember(workouts) { bestSets(workouts) },
             weightUnit = weightUnit,
             onSave = { exercises ->
@@ -199,6 +202,7 @@ fun GymApp(
             workouts = workouts,
             weeklyGoal = weeklyGoal,
             weightUnit = weightUnit,
+            catalogExerciseNames = catalogExerciseNames,
             onLog = { logging = true },
             onOpenSettings = { showSettings = true },
             onOpenExercise = { progressExercise = it },
