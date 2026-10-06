@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,10 @@ fun EditWorkoutDialog(
     }
 
     AlertDialog(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = onDismiss,
         title = {
             Row(
@@ -63,7 +68,7 @@ fun EditWorkoutDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 450.dp)
+                    .heightIn(max = 550.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -80,7 +85,7 @@ fun EditWorkoutDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
@@ -155,8 +160,20 @@ fun EditWorkoutDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(editedExercises.toList()) },
-                enabled = editedExercises.isNotEmpty()
+                onClick = {
+                    // Auto-commit pending edits so users don't lose changes by skipping "Update".
+                    if (name.isNotBlank()) {
+                        val pending = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
+                        val idx = editingIndex
+                        if (idx != null) {
+                            editedExercises[idx] = pending
+                        } else {
+                            editedExercises.add(pending)
+                        }
+                    }
+                    onSave(editedExercises.toList())
+                },
+                enabled = editedExercises.isNotEmpty() || name.isNotBlank()
             ) {
                 Text("Save Changes")
             }
