@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -16,6 +15,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,19 +87,20 @@ fun GymApp(
     onDynamicColorChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val navController = rememberNavController()
     val database = remember { AppDatabase.getDatabase(context) }
     val workoutDao = remember { database.workoutDao() }
     val routineDao = remember { database.routineDao() }
     val scope = rememberCoroutineScope()
 
-    // Live Flow from Room Database
-    val workoutsWithExercises by workoutDao.getAllWorkouts().collectAsState(initial = emptyList())
-    val workouts = remember(workoutsWithExercises) {
-        workoutsWithExercises.map { it.toDomainModel() }
-    }
+    // Live Flows from the Room database. Null until the first emission, which lets destinations that
+    // need real data tell "still loading" apart from "genuinely empty".
+    val loadedWorkouts by workoutDao.getAllWorkouts().collectAsState(initial = null)
+    val loadedRoutines by routineDao.getAllRoutines().collectAsState(initial = null)
+    val workouts = remember(loadedWorkouts) { loadedWorkouts.orEmpty().map { it.toDomainModel() } }
+    val routines = remember(loadedRoutines) { loadedRoutines.orEmpty().map { it.toDomainModel() } }
+    val databaseLoaded = loadedWorkouts != null && loadedRoutines != null
     val catalogExerciseNames = remember { loadExerciseNames(context) }
-    val routinesWithExercises by routineDao.getAllRoutines().collectAsState(initial = emptyList())
-    val routines = remember(routinesWithExercises) { routinesWithExercises.map { it.toDomainModel() } }
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
@@ -104,8 +109,22 @@ fun GymApp(
     var restVibrate by remember { mutableStateOf(ThemePreferences.getRestVibrate(context)) }
 
     // Every database change flows through here, so this keeps the widget in sync.
-    LaunchedEffect(workoutsWithExercises, themeMode, dynamicColor, weeklyGoal) {
+    LaunchedEffect(loadedWorkouts, themeMode, dynamicColor, weeklyGoal) {
         PhribsWidget().updateAll(context)
+    }
+
+    // A second tap can arrive before the first navigation commits, which would push a duplicate
+    // destination or pop past the start destination. An entry leaves RESUMED as soon as it begins
+    // navigating away, so that is the signal to ignore the repeat.
+    fun settled() =
+        navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED
+
+    fun goTo(route: Any) {
+        if (settled()) navController.navigate(route)
+    }
+
+    fun goBack() {
+        if (settled()) navController.popBackStack()
     }
 
     fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -153,77 +172,9 @@ fun GymApp(
         }
     }
 
-    var logging by remember { mutableStateOf(false) }
-    // Set only when logging was started from a routine, so the screen can pre-fill and retitle itself.
-    var startedRoutine by remember { mutableStateOf<Routine?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
-    var progressExercise by remember { mutableStateOf<String?>(null) }
-
-    val exercise = progressExercise
-    if (exercise != null) {
-        BackHandler { progressExercise = null }
-        ExerciseProgressScreen(
-            name = exercise,
-            workouts = workouts,
-            weightUnit = weightUnit,
-            onBack = { progressExercise = null }
-        )
-    } else if (showSettings) {
-        BackHandler { showSettings = false }
-        SettingsScreen(
-            themeMode = themeMode,
-            onThemeModeChange = onThemeModeChange,
-            dynamicColor = dynamicColor,
-            onDynamicColorChange = onDynamicColorChange,
-            weeklyGoal = weeklyGoal,
-            onWeeklyGoalChange = { goal ->
-                weeklyGoal = goal
-                ThemePreferences.setWeeklyGoal(context, goal)
-            },
-            weightUnit = weightUnit,
-            onWeightUnitChange = { unit ->
-                weightUnit = unit
-                ThemePreferences.setWeightUnit(context, unit)
-            },
-            restTimerEnabled = restTimerEnabled,
-            onRestTimerEnabledChange = { enabled ->
-                restTimerEnabled = enabled
-                ThemePreferences.setRestTimerEnabled(context, enabled)
-                // A countdown left running would have no way to be stopped once the UI for it is gone.
-                if (!enabled) RestTimer.skip(context)
-            },
-            restSeconds = restSeconds,
-            onRestSecondsChange = { seconds ->
-                restSeconds = seconds
-                ThemePreferences.setRestSeconds(context, seconds)
-            },
-            restVibrate = restVibrate,
-            onRestVibrateChange = { enabled ->
-                restVibrate = enabled
-                ThemePreferences.setRestVibrate(context, enabled)
-            },
-            onExport = { format ->
-                val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                val name = "phribs-$stamp.${format.extension}"
-                when (format) {
-                    BackupFormat.JSON -> exportJson.launch(name)
-                    BackupFormat.CSV -> exportCsv.launch(name)
-                }
-            },
-            // Some file pickers label CSV as text/plain or octet-stream, so don't filter too strictly.
-            onImport = { importLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
-            onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
-            onClearAllData = {
-                scope.launch(Dispatchers.IO) {
-                    workoutDao.deleteAllWorkouts()
-                    routineDao.deleteAllRoutines()
-                }
-            },
-            onBack = { showSettings = false }
-        )
-    } else if (logging) {
-        BackHandler { logging = false; startedRoutine = null }
-        val routine = startedRoutine
+    // A blank workout and one started from a routine are the same screen; only the pre-fill differs.
+    // Kept as a composable lambda so both destinations share it without replumbing every argument.
+    val logWorkout: @Composable (Routine?) -> Unit = { routine ->
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
             catalogExerciseNames = catalogExerciseNames,
@@ -241,42 +192,119 @@ fun GymApp(
                 scope.launch(Dispatchers.IO) {
                     workoutDao.insertFullWorkout(WorkoutEntity(id = now, date = now), exercises)
                 }
-                logging = false
-                startedRoutine = null
+                goBack()
             },
-            onCancel = { logging = false; startedRoutine = null }
+            onCancel = ::goBack
         )
-    } else {
-        HomeScreen(
-            workouts = workouts,
-            weeklyGoal = weeklyGoal,
-            weightUnit = weightUnit,
-            catalogExerciseNames = catalogExerciseNames,
-            routines = routines,
-            onLog = { startedRoutine = null; logging = true },
-            onStartRoutine = { routine ->
-                startedRoutine = routine
-                logging = true
-            },
-            onSaveRoutine = ::saveRoutine,
-            onRenameRoutine = { routine, name ->
-                scope.launch(Dispatchers.IO) { routineDao.renameRoutine(routine.id, name) }
-            },
-            onDeleteRoutine = { routine ->
-                scope.launch(Dispatchers.IO) { routineDao.deleteRoutineById(routine.id) }
-            },
-            onOpenSettings = { showSettings = true },
-            onOpenExercise = { progressExercise = it },
-            onDelete = { w ->
-                scope.launch(Dispatchers.IO) {
-                    workoutDao.deleteWorkoutById(w.id)
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = Home,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable<Home> {
+            HomeScreen(
+                workouts = workouts,
+                weeklyGoal = weeklyGoal,
+                weightUnit = weightUnit,
+                catalogExerciseNames = catalogExerciseNames,
+                routines = routines,
+                onLog = { goTo(LogWorkout) },
+                onStartRoutine = { routine -> goTo(LogRoutine(routine.id)) },
+                onSaveRoutine = ::saveRoutine,
+                onRenameRoutine = { routine, name ->
+                    scope.launch(Dispatchers.IO) { routineDao.renameRoutine(routine.id, name) }
+                },
+                onDeleteRoutine = { routine ->
+                    scope.launch(Dispatchers.IO) { routineDao.deleteRoutineById(routine.id) }
+                },
+                onOpenSettings = { goTo(Settings) },
+                onOpenExercise = { name -> goTo(ExerciseProgress(name)) },
+                onDelete = { w ->
+                    scope.launch(Dispatchers.IO) {
+                        workoutDao.deleteWorkoutById(w.id)
+                    }
+                },
+                onUpdate = { w, newExercises ->
+                    scope.launch(Dispatchers.IO) {
+                        workoutDao.updateFullWorkout(w.id, newExercises)
+                    }
                 }
-            },
-            onUpdate = { w, newExercises ->
-                scope.launch(Dispatchers.IO) {
-                    workoutDao.updateFullWorkout(w.id, newExercises)
-                }
-            }
-        )
+            )
+        }
+
+        composable<LogWorkout> { logWorkout(null) }
+
+        composable<LogRoutine> { entry ->
+            val routineId = entry.toRoute<LogRoutine>().routineId
+            // The screen snapshots its pre-fill on first composition, so opening it before the
+            // database has emitted would strand it on an empty workout. A routine deleted in the
+            // meantime falls through to a blank one.
+            if (databaseLoaded) logWorkout(routines.firstOrNull { it.id == routineId })
+        }
+
+        composable<ExerciseProgress> { entry ->
+            ExerciseProgressScreen(
+                name = entry.toRoute<ExerciseProgress>().exerciseName,
+                workouts = workouts,
+                weightUnit = weightUnit,
+                onBack = ::goBack
+            )
+        }
+
+        composable<Settings> {
+            SettingsScreen(
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
+                dynamicColor = dynamicColor,
+                onDynamicColorChange = onDynamicColorChange,
+                weeklyGoal = weeklyGoal,
+                onWeeklyGoalChange = { goal ->
+                    weeklyGoal = goal
+                    ThemePreferences.setWeeklyGoal(context, goal)
+                },
+                weightUnit = weightUnit,
+                onWeightUnitChange = { unit ->
+                    weightUnit = unit
+                    ThemePreferences.setWeightUnit(context, unit)
+                },
+                restTimerEnabled = restTimerEnabled,
+                onRestTimerEnabledChange = { enabled ->
+                    restTimerEnabled = enabled
+                    ThemePreferences.setRestTimerEnabled(context, enabled)
+                    // A countdown left running would have no way to be stopped once the UI for it is gone.
+                    if (!enabled) RestTimer.skip(context)
+                },
+                restSeconds = restSeconds,
+                onRestSecondsChange = { seconds ->
+                    restSeconds = seconds
+                    ThemePreferences.setRestSeconds(context, seconds)
+                },
+                restVibrate = restVibrate,
+                onRestVibrateChange = { enabled ->
+                    restVibrate = enabled
+                    ThemePreferences.setRestVibrate(context, enabled)
+                },
+                onExport = { format ->
+                    val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                    val name = "phribs-$stamp.${format.extension}"
+                    when (format) {
+                        BackupFormat.JSON -> exportJson.launch(name)
+                        BackupFormat.CSV -> exportCsv.launch(name)
+                    }
+                },
+                // Some file pickers label CSV as text/plain or octet-stream, so don't filter too strictly.
+                onImport = { importLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
+                onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
+                onClearAllData = {
+                    scope.launch(Dispatchers.IO) {
+                        workoutDao.deleteAllWorkouts()
+                        routineDao.deleteAllRoutines()
+                    }
+                },
+                onBack = ::goBack
+            )
+        }
     }
 }

@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Generates the serializers that Navigation Compose uses for type-safe routes.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // App Versioning Constants
@@ -54,6 +56,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
 
     // Widget
     implementation(libs.androidx.glance.appwidget)
