@@ -96,6 +96,9 @@ fun GymApp(
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
+    var restTimerEnabled by remember { mutableStateOf(ThemePreferences.getRestTimerEnabled(context)) }
+    var restSeconds by remember { mutableStateOf(ThemePreferences.getRestSeconds(context)) }
+    var restVibrate by remember { mutableStateOf(ThemePreferences.getRestVibrate(context)) }
 
     // Every database change flows through here, so this keeps the widget in sync.
     LaunchedEffect(workoutsWithExercises, themeMode, dynamicColor, weeklyGoal) {
@@ -167,6 +170,23 @@ fun GymApp(
                 weightUnit = unit
                 ThemePreferences.setWeightUnit(context, unit)
             },
+            restTimerEnabled = restTimerEnabled,
+            onRestTimerEnabledChange = { enabled ->
+                restTimerEnabled = enabled
+                ThemePreferences.setRestTimerEnabled(context, enabled)
+                // A countdown left running would have no way to be stopped once the UI for it is gone.
+                if (!enabled) RestTimer.skip(context)
+            },
+            restSeconds = restSeconds,
+            onRestSecondsChange = { seconds ->
+                restSeconds = seconds
+                ThemePreferences.setRestSeconds(context, seconds)
+            },
+            restVibrate = restVibrate,
+            onRestVibrateChange = { enabled ->
+                restVibrate = enabled
+                ThemePreferences.setRestVibrate(context, enabled)
+            },
             onExport = { format ->
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                 val name = "phribs-$stamp.${format.extension}"
@@ -188,6 +208,7 @@ fun GymApp(
             catalogExerciseNames = catalogExerciseNames,
             previousBests = remember(workouts) { bestSets(workouts) },
             weightUnit = weightUnit,
+            restSeconds = restSeconds.takeIf { restTimerEnabled },
             onSave = { exercises ->
                 val now = System.currentTimeMillis()
                 scope.launch(Dispatchers.IO) {

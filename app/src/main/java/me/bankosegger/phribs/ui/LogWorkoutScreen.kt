@@ -28,6 +28,7 @@ import me.bankosegger.phribs.beatsRecord
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.ui.theme.WeightUnit
 
+/** @param restSeconds rest length to count down after each finished set, or `null` to not offer one. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogWorkoutScreen(
@@ -35,9 +36,11 @@ fun LogWorkoutScreen(
     catalogExerciseNames: List<String> = emptyList(),
     previousBests: Map<String, ExerciseSet> = emptyMap(),
     weightUnit: WeightUnit = WeightUnit.KG,
+    restSeconds: Int? = null,
     onSave: (List<Exercise>) -> Unit,
     onCancel: () -> Unit
 ) {
+    val startRest = rememberRestTimerStarter()
     val added = remember { mutableStateListOf<Exercise>() }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
@@ -83,7 +86,8 @@ fun LogWorkoutScreen(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        }
+        },
+        bottomBar = { RestTimerBar(Modifier.navigationBarsPadding()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -169,7 +173,11 @@ fun LogWorkoutScreen(
                             }
                         }
 
-                        SetsEditor(sets, weightUnit)
+                        SetsEditor(
+                            sets = sets,
+                            weightUnit = weightUnit,
+                            onSetDone = restSeconds?.let { seconds -> { startRest(seconds) } }
+                        )
 
                         OutlinedTextField(
                             value = note,

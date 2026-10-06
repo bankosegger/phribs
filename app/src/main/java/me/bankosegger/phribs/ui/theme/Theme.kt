@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
+import me.bankosegger.phribs.RestTimer
 
 enum class ThemeMode(val label: String) {
     DARK("Dark Mode"),
@@ -41,6 +42,9 @@ object ThemePreferences {
     private const val KEY_WEEKLY_GOAL = "weekly_goal"
     private const val KEY_WEIGHT_UNIT = "weight_unit"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
+    private const val KEY_REST_TIMER = "rest_timer_enabled"
+    private const val KEY_REST_SECONDS = "rest_seconds"
+    private const val KEY_REST_VIBRATE = "rest_vibrate"
     private const val DEFAULT_WEEKLY_GOAL = 3
 
     fun getThemeMode(context: Context): ThemeMode {
@@ -89,6 +93,33 @@ object ThemePreferences {
     fun setDynamicColor(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
+    }
+
+    fun getRestTimerEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_REST_TIMER, true)
+
+    fun setRestTimerEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_REST_TIMER, enabled) }
+    }
+
+    fun getRestSeconds(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_REST_SECONDS, RestTimer.DEFAULT_SECONDS)
+            .coerceIn(RestTimer.MIN_SECONDS, RestTimer.MAX_SECONDS)
+    }
+
+    fun setRestSeconds(context: Context, seconds: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putInt(KEY_REST_SECONDS, seconds.coerceIn(RestTimer.MIN_SECONDS, RestTimer.MAX_SECONDS)) }
+    }
+
+    fun getRestVibrate(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_REST_VIBRATE, true)
+
+    fun setRestVibrate(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_REST_VIBRATE, enabled) }
     }
 }
 

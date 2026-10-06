@@ -1,9 +1,11 @@
 package me.bankosegger.phribs.ui
 
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -18,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import me.bankosegger.phribs.BackupFormat
 import me.bankosegger.phribs.BuildConfig
+import me.bankosegger.phribs.RestTimer
+import me.bankosegger.phribs.formatRestDuration
 import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.WeightUnit
 import me.bankosegger.phribs.ui.theme.supportsDynamicColor
@@ -33,6 +37,12 @@ fun SettingsScreen(
     onWeeklyGoalChange: (Int) -> Unit,
     weightUnit: WeightUnit,
     onWeightUnitChange: (WeightUnit) -> Unit,
+    restTimerEnabled: Boolean,
+    onRestTimerEnabledChange: (Boolean) -> Unit,
+    restSeconds: Int,
+    onRestSecondsChange: (Int) -> Unit,
+    restVibrate: Boolean,
+    onRestVibrateChange: (Boolean) -> Unit,
     onExport: (BackupFormat) -> Unit,
     onImport: () -> Unit,
     onSeedTestData: () -> Unit,
@@ -75,6 +85,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Text(
@@ -108,35 +119,12 @@ fun SettingsScreen(
                     }
                     if (supportsDynamicColor) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .toggleable(
-                                    value = dynamicColor,
-                                    onValueChange = onDynamicColorChange,
-                                    role = Role.Switch
-                                )
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Use system colors", style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    text = "Match the accent color of your wallpaper",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = dynamicColor,
-                                onCheckedChange = null,
-                                // The default unchecked thumb uses `outline`, which is nearly invisible in the fixed dark scheme.
-                                colors = SwitchDefaults.colors(
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
+                        ToggleRow(
+                            title = "Use system colors",
+                            subtitle = "Match the accent color of your wallpaper",
+                            checked = dynamicColor,
+                            onCheckedChange = onDynamicColorChange
+                        )
                     }
                 }
             }
@@ -231,6 +219,80 @@ fun SettingsScreen(
             }
 
             Text(
+                text = "Rest Timer",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+            )
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column {
+                    ToggleRow(
+                        title = "Count down after each set",
+                        subtitle = "Adds a done button to every set while logging",
+                        checked = restTimerEnabled,
+                        onCheckedChange = onRestTimerEnabledChange
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Rest length",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Extendable by ${RestTimer.EXTEND_SECONDS}s while resting",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            IconButton(
+                                onClick = { onRestSecondsChange(restSeconds - RestTimer.STEP_SECONDS) },
+                                enabled = restTimerEnabled && restSeconds > RestTimer.MIN_SECONDS
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "Shorten rest")
+                            }
+                            Text(
+                                text = formatRestDuration(restSeconds),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            IconButton(
+                                onClick = { onRestSecondsChange(restSeconds + RestTimer.STEP_SECONDS) },
+                                enabled = restTimerEnabled && restSeconds < RestTimer.MAX_SECONDS
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Lengthen rest")
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ToggleRow(
+                        title = "Vibrate when rest is over",
+                        subtitle = "Alongside the notification",
+                        checked = restVibrate,
+                        onCheckedChange = onRestVibrateChange,
+                        enabled = restTimerEnabled
+                    )
+                }
+            }
+
+            Text(
                 text = "Backup",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -277,5 +339,46 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                onValueChange = onCheckedChange,
+                role = Role.Switch
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            enabled = enabled,
+            // The default unchecked thumb uses `outline`, which is nearly invisible in the fixed dark scheme.
+            colors = SwitchDefaults.colors(
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
     }
 }

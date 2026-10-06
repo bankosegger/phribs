@@ -3,6 +3,7 @@ package me.bankosegger.phribs.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -30,11 +31,20 @@ fun Exercise.toSetInputs(unit: WeightUnit): List<SetInput> = sets.map {
     SetInput(it.reps.toString(), if (it.weightKg > 0) fmtWeight(it.weightKg.toUnit(unit)) else "")
 }
 
+/**
+ * @param onSetDone marks a set as just finished — shows a per-set check that starts the rest
+ *   countdown. Pass `null` where resting makes no sense, such as editing a past workout.
+ */
 @Composable
-fun SetsEditor(sets: SnapshotStateList<SetInput>, weightUnit: WeightUnit, modifier: Modifier = Modifier) {
+fun SetsEditor(
+    sets: SnapshotStateList<SetInput>,
+    weightUnit: WeightUnit,
+    modifier: Modifier = Modifier,
+    onSetDone: (() -> Unit)? = null
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         sets.forEachIndexed { i, set ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "${i + 1}",
                     style = MaterialTheme.typography.labelLarge,
@@ -46,8 +56,27 @@ fun SetsEditor(sets: SnapshotStateList<SetInput>, weightUnit: WeightUnit, modifi
                     "Weight (${weightUnit.unitSymbol})", set.weight,
                     { sets[i] = set.copy(weight = it) }, Modifier.weight(1f)
                 )
-                IconButton(onClick = { sets.removeAt(i) }, enabled = sets.size > 1) {
-                    Icon(Icons.Default.Close, contentDescription = "Remove set ${i + 1}")
+                // Both icon buttons are trimmed below the 48.dp default to leave the fields room.
+                if (onSetDone != null) {
+                    IconButton(onClick = onSetDone, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Set ${i + 1} done, start rest timer",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { sets.removeAt(i) },
+                    enabled = sets.size > 1,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove set ${i + 1}",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
