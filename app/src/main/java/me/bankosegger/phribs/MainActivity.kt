@@ -85,6 +85,7 @@ fun GymApp(
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val workoutDao = remember { database.workoutDao() }
+    val routineDao = remember { database.routineDao() }
     val scope = rememberCoroutineScope()
 
     // Live Flow from Room Database
@@ -93,6 +94,8 @@ fun GymApp(
         workoutsWithExercises.map { it.toDomainModel() }
     }
     val catalogExerciseNames = remember { loadExerciseNames(context) }
+    val routinesWithExercises by routineDao.getAllRoutines().collectAsState(initial = emptyList())
+    val routines = remember(routinesWithExercises) { routinesWithExercises.map { it.toDomainModel() } }
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
@@ -106,6 +109,16 @@ fun GymApp(
     }
 
     fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+    // Saving over an existing name replaces that routine, which is how routines get edited.
+    fun saveRoutine(name: String, exerciseNames: List<String>) {
+        val existing = findRoutineByName(routines, name)
+        scope.launch(Dispatchers.IO) {
+            if (existing != null) routineDao.replaceRoutineExercises(existing.id, exerciseNames)
+            else routineDao.createRoutine(name, exerciseNames)
+        }
+        toast(if (existing != null) "Updated routine \"$name\"" else "Saved routine \"$name\"")
+    }
 
     fun export(uri: Uri?, format: BackupFormat) {
         if (uri == null) return
@@ -141,6 +154,8 @@ fun GymApp(
     }
 
     var logging by remember { mutableStateOf(false) }
+    // Set only when logging was started from a routine, so the screen can pre-fill and retitle itself.
+    var startedRoutine by remember { mutableStateOf<Routine?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var progressExercise by remember { mutableStateOf<String?>(null) }
 
@@ -198,25 +213,38 @@ fun GymApp(
             // Some file pickers label CSV as text/plain or octet-stream, so don't filter too strictly.
             onImport = { importLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
             onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
-            onClearAllData = { scope.launch(Dispatchers.IO) { workoutDao.deleteAllWorkouts() } },
+            onClearAllData = {
+                scope.launch(Dispatchers.IO) {
+                    workoutDao.deleteAllWorkouts()
+                    routineDao.deleteAllRoutines()
+                }
+            },
             onBack = { showSettings = false }
         )
     } else if (logging) {
-        BackHandler { logging = false }
+        BackHandler { logging = false; startedRoutine = null }
+        val routine = startedRoutine
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
             catalogExerciseNames = catalogExerciseNames,
             previousBests = remember(workouts) { bestSets(workouts) },
             weightUnit = weightUnit,
             restSeconds = restSeconds.takeIf { restTimerEnabled },
+            initialExercises = remember(routine, workouts) {
+                routine?.let { prefill(it, lastSessions(workouts)) }.orEmpty()
+            },
+            routineName = routine?.name,
+            routines = routines,
+            onSaveRoutine = ::saveRoutine,
             onSave = { exercises ->
                 val now = System.currentTimeMillis()
                 scope.launch(Dispatchers.IO) {
                     workoutDao.insertFullWorkout(WorkoutEntity(id = now, date = now), exercises)
                 }
                 logging = false
+                startedRoutine = null
             },
-            onCancel = { logging = false }
+            onCancel = { logging = false; startedRoutine = null }
         )
     } else {
         HomeScreen(
@@ -224,7 +252,19 @@ fun GymApp(
             weeklyGoal = weeklyGoal,
             weightUnit = weightUnit,
             catalogExerciseNames = catalogExerciseNames,
-            onLog = { logging = true },
+            routines = routines,
+            onLog = { startedRoutine = null; logging = true },
+            onStartRoutine = { routine ->
+                startedRoutine = routine
+                logging = true
+            },
+            onSaveRoutine = ::saveRoutine,
+            onRenameRoutine = { routine, name ->
+                scope.launch(Dispatchers.IO) { routineDao.renameRoutine(routine.id, name) }
+            },
+            onDeleteRoutine = { routine ->
+                scope.launch(Dispatchers.IO) { routineDao.deleteRoutineById(routine.id) }
+            },
             onOpenSettings = { showSettings = true },
             onOpenExercise = { progressExercise = it },
             onDelete = { w ->

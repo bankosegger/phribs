@@ -8,6 +8,12 @@ data class ExerciseSet(val reps: Int, val weightKg: Double)
 data class Exercise(val name: String, val sets: List<ExerciseSet>, val note: String = "")
 data class Workout(val id: Long, val date: Long, val exercises: List<Exercise>)
 
+/**
+ * A reusable workout template, e.g. "Push day". Only the exercise names are stored — the sets to
+ * start from are read back out of the workout history, so a routine never holds stale weights.
+ */
+data class Routine(val id: Long, val name: String, val exerciseNames: List<String>)
+
 internal fun fmtWeight(d: Double): String {
     val rounded = (d * 10.0).roundToInt() / 10.0
     return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,11 +25,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.bankosegger.phribs.Exercise
 import me.bankosegger.phribs.ExerciseSet
+import me.bankosegger.phribs.Routine
 import me.bankosegger.phribs.beatsRecord
 import me.bankosegger.phribs.describe
+import me.bankosegger.phribs.routineExerciseNames
 import me.bankosegger.phribs.ui.theme.WeightUnit
 
-/** @param restSeconds rest length to count down after each finished set, or `null` to not offer one. */
+/**
+ * @param restSeconds rest length to count down after each finished set, or `null` to not offer one.
+ * @param initialExercises exercises to open with, as pre-filled by a routine.
+ * @param routineName name of the routine this was started from, shown in place of the title.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogWorkoutScreen(
@@ -37,11 +44,16 @@ fun LogWorkoutScreen(
     previousBests: Map<String, ExerciseSet> = emptyMap(),
     weightUnit: WeightUnit = WeightUnit.KG,
     restSeconds: Int? = null,
+    initialExercises: List<Exercise> = emptyList(),
+    routineName: String? = null,
+    routines: List<Routine> = emptyList(),
+    onSaveRoutine: (String, List<String>) -> Unit = { _, _ -> },
     onSave: (List<Exercise>) -> Unit,
     onCancel: () -> Unit
 ) {
     val startRest = rememberRestTimerStarter()
-    val added = remember { mutableStateListOf<Exercise>() }
+    val added = remember { mutableStateListOf<Exercise>().apply { addAll(initialExercises) } }
+    var savingRoutine by remember { mutableStateOf(false) }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -73,7 +85,7 @@ fun LogWorkoutScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Log Workout", fontWeight = FontWeight.Bold) },
+                title = { Text(routineName ?: "Log Workout", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(
@@ -314,6 +326,16 @@ fun LogWorkoutScreen(
             // Bottom Save / Cancel actions
             item {
                 Spacer(Modifier.height(8.dp))
+                if (added.isNotEmpty()) {
+                    TextButton(
+                        onClick = { savingRoutine = true },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (routineName != null) "Update Routine" else "Save as Routine")
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -342,5 +364,19 @@ fun LogWorkoutScreen(
                 }
             }
         }
+    }
+
+    if (savingRoutine) {
+        RoutineNameDialog(
+            title = if (routineName != null) "Update routine" else "Save as routine",
+            initialName = routineName ?: "",
+            // Reusing the routine's own name is the point of "Update Routine", not a clash.
+            existingRoutines = routines.filterNot { it.name.equals(routineName, ignoreCase = true) },
+            onConfirm = { name ->
+                savingRoutine = false
+                onSaveRoutine(name, routineExerciseNames(added.toList()))
+            },
+            onDismiss = { savingRoutine = false }
+        )
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.Exercise
+import me.bankosegger.phribs.Routine
 import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.newRecords
 import me.bankosegger.phribs.startOfMonth
@@ -33,7 +34,12 @@ fun HomeScreen(
     weeklyGoal: Int = 3,
     weightUnit: WeightUnit = WeightUnit.KG,
     catalogExerciseNames: List<String> = emptyList(),
+    routines: List<Routine> = emptyList(),
     onLog: () -> Unit,
+    onStartRoutine: (Routine) -> Unit = {},
+    onSaveRoutine: (String, List<String>) -> Unit = { _, _ -> },
+    onRenameRoutine: (Routine, String) -> Unit = { _, _ -> },
+    onDeleteRoutine: (Routine) -> Unit = {},
     onOpenSettings: () -> Unit,
     onOpenExercise: (String) -> Unit,
     onDelete: (Workout) -> Unit,
@@ -125,6 +131,15 @@ fun HomeScreen(
             // Top Exercises Card
             item { TopExercisesCard(workouts, onOpenExercise) }
 
+            item {
+                RoutinesCard(
+                    routines = routines,
+                    onStart = onStartRoutine,
+                    onRename = onRenameRoutine,
+                    onDelete = onDeleteRoutine
+                )
+            }
+
             // History Header
             item {
                 Row(
@@ -187,7 +202,17 @@ fun HomeScreen(
                 }
             } else {
                 items(workouts, key = { it.id }) { w ->
-                    WorkoutCard(w = w, weightUnit = weightUnit, records = records[w.id].orEmpty(), exerciseNames = exerciseNames, onOpenExercise = onOpenExercise, onDelete = onDelete, onUpdate = onUpdate)
+                    WorkoutCard(
+                        w = w,
+                        weightUnit = weightUnit,
+                        records = records[w.id].orEmpty(),
+                        exerciseNames = exerciseNames,
+                        routines = routines,
+                        onOpenExercise = onOpenExercise,
+                        onSaveRoutine = onSaveRoutine,
+                        onDelete = onDelete,
+                        onUpdate = onUpdate
+                    )
                 }
             }
 

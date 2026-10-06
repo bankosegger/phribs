@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,9 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.SolidColor
 import me.bankosegger.phribs.Exercise
+import me.bankosegger.phribs.Routine
 import me.bankosegger.phribs.Workout
 import me.bankosegger.phribs.describe
 import me.bankosegger.phribs.getDisplayFormat
+import me.bankosegger.phribs.routineExerciseNames
 import me.bankosegger.phribs.ui.theme.WeightUnit
 import java.util.Date
 
@@ -36,13 +39,16 @@ fun WorkoutCard(
     weightUnit: WeightUnit = WeightUnit.KG,
     records: Set<String> = emptySet(),
     exerciseNames: List<String> = emptyList(),
+    routines: List<Routine> = emptyList(),
     onOpenExercise: (String) -> Unit = {},
+    onSaveRoutine: (String, List<String>) -> Unit = { _, _ -> },
     onDelete: (Workout) -> Unit,
     onUpdate: (Workout, List<Exercise>) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var editingWorkout by remember { mutableStateOf(false) }
+    var savingRoutine by remember { mutableStateOf(false) }
 
     OutlinedCard(
         modifier = Modifier
@@ -172,6 +178,20 @@ fun WorkoutCard(
 
                     Spacer(Modifier.height(4.dp))
 
+                    TextButton(
+                        onClick = { savingRoutine = true },
+                        enabled = w.exercises.isNotEmpty(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Repeat,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save as Routine")
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
@@ -226,6 +246,18 @@ fun WorkoutCard(
                 onUpdate(w, updatedExercises)
             },
             onDismiss = { editingWorkout = false }
+        )
+    }
+
+    if (savingRoutine) {
+        RoutineNameDialog(
+            title = "Save as routine",
+            existingRoutines = routines,
+            onConfirm = { name ->
+                savingRoutine = false
+                onSaveRoutine(name, routineExerciseNames(w.exercises))
+            },
+            onDismiss = { savingRoutine = false }
         )
     }
 
