@@ -25,6 +25,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import kotlinx.coroutines.flow.first
+import me.bankosegger.phribs.BuildConfig
 import me.bankosegger.phribs.MainActivity
 import me.bankosegger.phribs.data.AppDatabase
 import me.bankosegger.phribs.startOfWeek
@@ -72,7 +73,7 @@ private fun WidgetContent(visits: Int, streak: Int, weeklyGoal: Int) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "PHRIBS",
+            text = if (BuildConfig.DEBUG) "PHRIBS 🐛" else "PHRIBS",
             style = TextStyle(
                 color = GlanceTheme.colors.onSurfaceVariant,
                 fontSize = 12.sp,
