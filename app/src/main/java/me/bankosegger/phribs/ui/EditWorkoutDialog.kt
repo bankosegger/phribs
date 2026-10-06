@@ -30,6 +30,7 @@ fun EditWorkoutDialog(
     val editedExercises = remember { mutableStateListOf<Exercise>().apply { addAll(workout.exercises) } }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
     val sets = remember { mutableStateListOf(SetInput()) }
     val exerciseSuggestions = remember(name, exerciseNames, editingIndex) {
         if (editingIndex != null || name.isBlank()) emptyList()
@@ -42,6 +43,7 @@ fun EditWorkoutDialog(
     fun clearInput() {
         editingIndex = null
         name = ""
+        note = ""
         sets.clear()
         sets += SetInput()
     }
@@ -49,6 +51,7 @@ fun EditWorkoutDialog(
     fun startEditing(index: Int, e: Exercise) {
         editingIndex = index
         name = e.name
+        note = e.note
         sets.clear()
         sets += e.toSetInputs(weightUnit).ifEmpty { listOf(SetInput()) }
     }
@@ -99,6 +102,9 @@ fun EditWorkoutDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(e.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                                     Text(describe(e, weightUnit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                                    if (e.note.isNotBlank()) {
+                                        Text(e.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                                 IconButton(onClick = { startEditing(index, e) }) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
@@ -153,6 +159,15 @@ fun EditWorkoutDialog(
 
                 SetsEditor(sets, weightUnit)
 
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note (optional)") },
+                    minLines = 2,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -168,7 +183,7 @@ fun EditWorkoutDialog(
                     }
                     Button(
                         onClick = {
-                            val newExercise = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
+                            val newExercise = Exercise(name = name.trim(), sets = sets.toSets(weightUnit), note = note.trim())
                             if (editingIndex != null) {
                                 editedExercises[editingIndex!!] = newExercise
                             } else {
@@ -190,7 +205,7 @@ fun EditWorkoutDialog(
                 onClick = {
                     // Auto-commit pending edits so users don't lose changes by skipping "Update".
                     if (name.isNotBlank()) {
-                        val pending = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
+                        val pending = Exercise(name = name.trim(), sets = sets.toSets(weightUnit), note = note.trim())
                         val idx = editingIndex
                         if (idx != null) {
                             editedExercises[idx] = pending

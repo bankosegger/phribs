@@ -31,7 +31,8 @@ data class WorkoutEntity(
 data class ExerciseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val workoutId: Long,
-    val name: String
+    val name: String,
+    val note: String = ""
 )
 
 @Entity(
@@ -80,7 +81,8 @@ data class WorkoutWithExercises(
             exercises = exercises.sortedBy { it.exercise.id }.map { e ->
                 Exercise(
                     name = e.exercise.name,
-                    sets = e.sets.sortedBy { it.position }.map { ExerciseSet(it.reps, it.weightKg) }
+                    sets = e.sets.sortedBy { it.position }.map { ExerciseSet(it.reps, it.weightKg) },
+                    note = e.exercise.note
                 )
             }
         )

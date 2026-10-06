@@ -62,7 +62,7 @@ internal fun weeklyStreaks(workouts: List<Workout>, now: Long = System.currentTi
     return Streaks(current, best)
 }
 
-internal data class ExerciseSession(val date: Long, val sets: List<ExerciseSet>) {
+internal data class ExerciseSession(val date: Long, val sets: List<ExerciseSet>, val note: String = "") {
     val topWeightKg: Double get() = sets.maxOfOrNull { it.weightKg } ?: 0.0
     val volumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }
     val totalReps: Int get() = sets.sumOf { it.reps }
@@ -71,8 +71,10 @@ internal data class ExerciseSession(val date: Long, val sets: List<ExerciseSet>)
 // Oldest first. An exercise logged twice in one workout counts as one session.
 internal fun exerciseSessions(workouts: List<Workout>, name: String): List<ExerciseSession> =
     workouts.mapNotNull { w ->
-        val sets = w.exercises.filter { it.name.equals(name, ignoreCase = true) }.flatMap { it.sets }
-        if (sets.isEmpty()) null else ExerciseSession(w.date, sets)
+        val matches = w.exercises.filter { it.name.equals(name, ignoreCase = true) }
+        val sets = matches.flatMap { it.sets }
+        if (sets.isEmpty()) null
+        else ExerciseSession(w.date, sets, matches.map { it.note }.filter { it.isNotBlank() }.joinToString(" · "))
     }.sortedBy { it.date }
 
 internal data class PersonalRecord(val set: ExerciseSet, val date: Long)

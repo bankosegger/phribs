@@ -5,7 +5,7 @@ import me.bankosegger.phribs.ui.theme.toUnit
 import kotlin.math.roundToInt
 
 data class ExerciseSet(val reps: Int, val weightKg: Double)
-data class Exercise(val name: String, val sets: List<ExerciseSet>)
+data class Exercise(val name: String, val sets: List<ExerciseSet>, val note: String = "")
 data class Workout(val id: Long, val date: Long, val exercises: List<Exercise>)
 
 internal fun fmtWeight(d: Double): String {

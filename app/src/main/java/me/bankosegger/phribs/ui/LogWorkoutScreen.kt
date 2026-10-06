@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -40,6 +41,7 @@ fun LogWorkoutScreen(
     val added = remember { mutableStateListOf<Exercise>() }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var name by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
     val sets = remember { mutableStateListOf(SetInput()) }
     val exerciseSuggestions = remember(name, catalogExerciseNames, editingIndex) {
         if (editingIndex != null || name.isBlank()) emptyList()
@@ -52,6 +54,7 @@ fun LogWorkoutScreen(
     fun clearInput() {
         editingIndex = null
         name = ""
+        note = ""
         sets.clear()
         sets += SetInput()
     }
@@ -59,6 +62,7 @@ fun LogWorkoutScreen(
     fun startEditing(index: Int, e: Exercise) {
         editingIndex = index
         name = e.name
+        note = e.note
         sets.clear()
         sets += e.toSetInputs(weightUnit).ifEmpty { listOf(SetInput()) }
     }
@@ -167,6 +171,18 @@ fun LogWorkoutScreen(
 
                         SetsEditor(sets, weightUnit)
 
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            label = { Text("Note (optional)") },
+                            leadingIcon = {
+                                Icon(Icons.AutoMirrored.Filled.StickyNote2, contentDescription = null)
+                            },
+                            minLines = 2,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -182,7 +198,11 @@ fun LogWorkoutScreen(
                             }
                             Button(
                                 onClick = {
-                                    val newExercise = Exercise(name = name.trim(), sets = sets.toSets(weightUnit))
+                                    val newExercise = Exercise(
+                                        name = name.trim(),
+                                        sets = sets.toSets(weightUnit),
+                                        note = note.trim()
+                                    )
                                     if (editingIndex != null) {
                                         added[editingIndex!!] = newExercise
                                     } else {
@@ -253,6 +273,13 @@ fun LogWorkoutScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
+                                if (e.note.isNotBlank()) {
+                                    Text(
+                                        text = e.note,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             IconButton(onClick = { startEditing(index, e) }) {
                                 Icon(

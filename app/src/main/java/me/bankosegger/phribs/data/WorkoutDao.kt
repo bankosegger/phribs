@@ -26,7 +26,7 @@ abstract class WorkoutDao {
 
     private suspend fun insertExercises(workoutId: Long, exercises: List<Exercise>) {
         exercises.forEach { e ->
-            val exerciseId = insertExercise(ExerciseEntity(workoutId = workoutId, name = e.name))
+            val exerciseId = insertExercise(ExerciseEntity(workoutId = workoutId, name = e.name, note = e.note))
             insertSets(e.sets.mapIndexed { i, s ->
                 ExerciseSetEntity(exerciseId = exerciseId, position = i, reps = s.reps, weightKg = s.weightKg)
             })

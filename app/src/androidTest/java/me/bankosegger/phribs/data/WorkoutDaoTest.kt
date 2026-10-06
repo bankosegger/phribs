@@ -77,6 +77,16 @@ class WorkoutDaoTest {
     }
 
     @Test
+    fun exerciseNotesRoundTrip() = runBlocking {
+        val noted = Exercise("Bench", listOf(ExerciseSet(10, 60.0)), "Left shoulder tight")
+        dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(noted, exercise("Squat")))
+
+        val exercises = all().single().toDomainModel().exercises
+        assertEquals("Left shoulder tight", exercises[0].note)
+        assertEquals("", exercises[1].note)
+    }
+
+    @Test
     fun deletingWorkoutAlsoDeletesItsExercises() = runBlocking {
         dao.insertFullWorkout(WorkoutEntity(1, 1000), listOf(exercise("Squat")))
         dao.insertFullWorkout(WorkoutEntity(2, 2000), listOf(exercise("Bench")))

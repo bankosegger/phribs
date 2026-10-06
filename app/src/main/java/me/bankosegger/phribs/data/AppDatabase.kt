@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.bankosegger.phribs.Storage
 
-@Database(entities = [WorkoutEntity::class, ExerciseEntity::class, ExerciseSetEntity::class], version = 2, exportSchema = false)
+@Database(entities = [WorkoutEntity::class, ExerciseEntity::class, ExerciseSetEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 
@@ -50,6 +50,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Per-exercise free-text note. Existing rows get an empty note.
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `exercises` ADD COLUMN `note` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -60,7 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "gym_tracker.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
