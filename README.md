@@ -39,5 +39,5 @@ An Android app for logging gym workouts, built with Jetpack Compose and Room.
 - [x] **Home screen widget:** this week's visits and streak
 
 ### Structural
-- [ ] Move navigation to Navigation Compose instead of boolean screen flags
+- [x] Move navigation to Navigation Compose instead of boolean screen flags
 - [x] Split `MainActivity.kt` into one file per screen

@@ -1,35 +1,41 @@
 package me.bankosegger.phribs
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
 import android.net.Uri
+import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.compose.setContent
+import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import me.bankosegger.phribs.data.AppDatabase
-import me.bankosegger.phribs.data.loadExerciseNames
 import me.bankosegger.phribs.data.WorkoutEntity
+import me.bankosegger.phribs.data.loadExerciseNames
 import me.bankosegger.phribs.data.seedTestData
 import me.bankosegger.phribs.ui.ExerciseProgressScreen
 import me.bankosegger.phribs.ui.HomeScreen
@@ -40,6 +46,9 @@ import me.bankosegger.phribs.ui.theme.ThemeMode
 import me.bankosegger.phribs.ui.theme.ThemePreferences
 import me.bankosegger.phribs.ui.theme.isDark
 import me.bankosegger.phribs.widget.PhribsWidget
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +86,17 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+@Preview(showBackground = true, name = "Test", showSystemUi = true)
+@Composable
+fun GymAppPreview() {
+    GymApp(
+        themeMode = ThemeMode.DARK,
+        onThemeModeChange = {},
+        dynamicColor = true,
+        onDynamicColorChange = {}
+    )
 }
 
 @Composable
