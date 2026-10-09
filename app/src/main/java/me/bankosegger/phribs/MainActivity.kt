@@ -55,13 +55,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            var themeMode by remember { mutableStateOf(ThemePreferences.getThemeMode(this)) }
-            var dynamicColor by remember { mutableStateOf(ThemePreferences.getDynamicColor(this)) }
+
+            var themeMode by remember { mutableStateOf(ThemePreferences
+                .getThemeMode(this)) }
+
+            var dynamicColor by remember { mutableStateOf(ThemePreferences
+                .getDynamicColor(this)) }
             val darkTheme = themeMode.isDark()
             // The default edge-to-edge style follows the system theme, not the one picked in-app.
             DisposableEffect(darkTheme) {
-                val style = if (darkTheme) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-                else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                val style = if (darkTheme) SystemBarStyle
+                    .dark(android.graphics.Color.TRANSPARENT)
+                else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
@@ -113,18 +119,21 @@ fun GymApp(
     val routineDao = remember { database.routineDao() }
     val scope = rememberCoroutineScope()
 
-    // Live Flows from the Room database. Null until the first emission, which lets destinations that
-    // need real data tell "still loading" apart from "genuinely empty".
+    // Live Flows from the Room database. Null until the first emission, which lets destinations
+    // that need real data tell "still loading" apart from "genuinely empty".
     val loadedWorkouts by workoutDao.getAllWorkouts().collectAsState(initial = null)
     val loadedRoutines by routineDao.getAllRoutines().collectAsState(initial = null)
-    val workouts = remember(loadedWorkouts) { loadedWorkouts.orEmpty().map { it.toDomainModel() } }
-    val routines = remember(loadedRoutines) { loadedRoutines.orEmpty().map { it.toDomainModel() } }
+    val workouts =
+        remember(loadedWorkouts) { loadedWorkouts.orEmpty().map { it.toDomainModel() } }
+    val routines =
+        remember(loadedRoutines) { loadedRoutines.orEmpty().map { it.toDomainModel() } }
     val databaseLoaded = loadedWorkouts != null && loadedRoutines != null
     val catalogExerciseNames = remember { loadExerciseNames(context) }
 
     var weeklyGoal by remember { mutableStateOf(ThemePreferences.getWeeklyGoal(context)) }
     var weightUnit by remember { mutableStateOf(ThemePreferences.getWeightUnit(context)) }
-    var restTimerEnabled by remember { mutableStateOf(ThemePreferences.getRestTimerEnabled(context)) }
+    var restTimerEnabled by remember { mutableStateOf(ThemePreferences
+        .getRestTimerEnabled(context)) }
     var restSeconds by remember { mutableStateOf(ThemePreferences.getRestSeconds(context)) }
     var restVibrate by remember { mutableStateOf(ThemePreferences.getRestVibrate(context)) }
 
@@ -153,10 +162,13 @@ fun GymApp(
     fun saveRoutine(name: String, exerciseNames: List<String>) {
         val existing = findRoutineByName(routines, name)
         scope.launch(Dispatchers.IO) {
-            if (existing != null) routineDao.replaceRoutineExercises(existing.id, exerciseNames)
+            if (existing != null) routineDao
+                .replaceRoutineExercises(existing.id, exerciseNames)
             else routineDao.createRoutine(name, exerciseNames)
         }
-        toast(if (existing != null) "Updated routine \"$name\"" else "Saved routine \"$name\"")
+        toast(if (existing != null)
+            "Updated routine \"$name\"" else "Saved routine \"$name\""
+        )
     }
 
     fun export(uri: Uri?, format: BackupFormat) {
@@ -164,7 +176,8 @@ fun GymApp(
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openOutputStream(uri, "wt")!!.bufferedWriter().use {
+                    context.contentResolver.openOutputStream(uri, "wt")!!
+                        .bufferedWriter().use {
                         it.write(Backup.encode(workouts, format))
                     }
                 }.isSuccess
@@ -179,16 +192,20 @@ fun GymApp(
     val exportCsv = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(BackupFormat.CSV.mimeType)
     ) { export(it, BackupFormat.CSV) }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val count = withContext(Dispatchers.IO) {
                 runCatching {
-                    val text = context.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
+                    val text = context.contentResolver.openInputStream(uri)!!
+                        .bufferedReader().use { it.readText() }
                     Backup.decode(text).also { workoutDao.importWorkouts(it) }.size
                 }.getOrNull()
             }
-            toast(if (count != null) "Imported $count workouts" else "Import failed: unrecognized file")
+            toast(if (count != null)
+                "Imported $count workouts" else "Import failed: unrecognized file"
+            )
         }
     }
 
@@ -234,10 +251,12 @@ fun GymApp(
                 onStartRoutine = { routine -> goTo(LogRoutine(routine.id)) },
                 onSaveRoutine = ::saveRoutine,
                 onRenameRoutine = { routine, name ->
-                    scope.launch(Dispatchers.IO) { routineDao.renameRoutine(routine.id, name) }
+                    scope.launch(Dispatchers.IO) { routineDao
+                        .renameRoutine(routine.id, name) }
                 },
                 onDeleteRoutine = { routine ->
-                    scope.launch(Dispatchers.IO) { routineDao.deleteRoutineById(routine.id) }
+                    scope.launch(Dispatchers.IO) { routineDao
+                        .deleteRoutineById(routine.id) }
                 },
                 onOpenSettings = { goTo(Settings) },
                 onOpenExercise = { name -> goTo(ExerciseProgress(name)) },
@@ -293,7 +312,8 @@ fun GymApp(
                 onRestTimerEnabledChange = { enabled ->
                     restTimerEnabled = enabled
                     ThemePreferences.setRestTimerEnabled(context, enabled)
-                    // A countdown left running would have no way to be stopped once the UI for it is gone.
+                    // A countdown left running would have no way to be
+                    // stopped once the UI for it is gone.
                     if (!enabled) RestTimer.skip(context)
                 },
                 restSeconds = restSeconds,
@@ -314,9 +334,13 @@ fun GymApp(
                         BackupFormat.CSV -> exportCsv.launch(name)
                     }
                 },
-                // Some file pickers label CSV as text/plain or octet-stream, so don't filter too strictly.
-                onImport = { importLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
-                onSeedTestData = { scope.launch(Dispatchers.IO) { workoutDao.seedTestData() } },
+                // Some file pickers label CSV as text/plain or octet-stream, so don't
+                // filter too strictly.
+                onImport = { importLauncher
+                    .launch(arrayOf("application/json", "text/*",
+                        "application/octet-stream")) },
+                onSeedTestData = { scope
+                    .launch(Dispatchers.IO) { workoutDao.seedTestData() } },
                 onClearAllData = {
                     scope.launch(Dispatchers.IO) {
                         workoutDao.deleteAllWorkouts()

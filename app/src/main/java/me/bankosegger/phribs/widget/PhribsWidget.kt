@@ -2,6 +2,7 @@ package me.bankosegger.phribs.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -11,6 +12,8 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.PreviewSizeMode
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -36,6 +39,20 @@ import me.bankosegger.phribs.visitDays
 import me.bankosegger.phribs.weeklyStreaks
 
 class PhribsWidget : GlanceAppWidget() {
+    override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(
+        setOf(DpSize(110.dp, 110.dp), DpSize(220.dp, 110.dp))
+    )
+
+    override suspend fun providePreview(context: Context, widgetCategory: Int) {
+        val dynamic = ThemePreferences.getDynamicColor(context)
+        val scheme = colorScheme(context, dark = false, dynamic)
+        provideContent {
+            GlanceTheme(colors = ColorProviders(scheme)) {
+                WidgetContent(visits = 3, streak = 2, weeklyGoal = 3)
+            }
+        }
+    }
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val workouts = AppDatabase.getDatabase(context).workoutDao()
             .getAllWorkouts().first()

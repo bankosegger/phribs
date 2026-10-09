@@ -47,9 +47,12 @@ object ThemePreferences {
     private const val KEY_REST_VIBRATE = "rest_vibrate"
     private const val DEFAULT_WEEKLY_GOAL = 3
 
+    private fun prefs(context: Context) = context
+        .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
     fun getThemeMode(context: Context): ThemeMode {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_THEME, ThemeMode.DARK.name) ?: ThemeMode.DARK.name
+        val raw = prefs(context)
+            .getString(KEY_THEME, ThemeMode.DARK.name) ?: ThemeMode.DARK.name
         return try {
             ThemeMode.valueOf(raw)
         } catch (_: Exception) {
@@ -58,23 +61,20 @@ object ThemePreferences {
     }
 
     fun setThemeMode(context: Context, mode: ThemeMode) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putString(KEY_THEME, mode.name) }
+        prefs(context).edit { putString(KEY_THEME, mode.name) }
     }
 
     fun getWeeklyGoal(context: Context): Int {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_WEEKLY_GOAL, DEFAULT_WEEKLY_GOAL)
+        return prefs(context).getInt(KEY_WEEKLY_GOAL, DEFAULT_WEEKLY_GOAL)
     }
 
     fun setWeeklyGoal(context: Context, goal: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putInt(KEY_WEEKLY_GOAL, goal) }
+        prefs(context).edit { putInt(KEY_WEEKLY_GOAL, goal) }
     }
 
     fun getWeightUnit(context: Context): WeightUnit {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_WEIGHT_UNIT, WeightUnit.KG.name) ?: WeightUnit.KG.name
+        val raw = prefs(context)
+            .getString(KEY_WEIGHT_UNIT, WeightUnit.KG.name) ?: WeightUnit.KG.name
         return try {
             WeightUnit.valueOf(raw)
         } catch (_: Exception) {
@@ -83,43 +83,38 @@ object ThemePreferences {
     }
 
     fun setWeightUnit(context: Context, unit: WeightUnit) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putString(KEY_WEIGHT_UNIT, unit.name) }
+        prefs(context).edit { putString(KEY_WEIGHT_UNIT, unit.name) }
     }
 
     fun getDynamicColor(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_DYNAMIC_COLOR, false)
+        prefs(context).getBoolean(KEY_DYNAMIC_COLOR, false)
 
     fun setDynamicColor(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
+        prefs(context).edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
     }
 
     fun getRestTimerEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_REST_TIMER, true)
+        prefs(context).getBoolean(KEY_REST_TIMER, true)
 
     fun setRestTimerEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putBoolean(KEY_REST_TIMER, enabled) }
+        prefs(context).edit { putBoolean(KEY_REST_TIMER, enabled) }
     }
 
     fun getRestSeconds(context: Context): Int {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_REST_SECONDS, RestTimer.DEFAULT_SECONDS)
+        return prefs(context).getInt(KEY_REST_SECONDS, RestTimer.DEFAULT_SECONDS)
             .coerceIn(RestTimer.MIN_SECONDS, RestTimer.MAX_SECONDS)
     }
 
     fun setRestSeconds(context: Context, seconds: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putInt(KEY_REST_SECONDS, seconds.coerceIn(RestTimer.MIN_SECONDS, RestTimer.MAX_SECONDS)) }
+        prefs(context).edit { putInt(KEY_REST_SECONDS,
+            seconds.coerceIn(RestTimer.MIN_SECONDS, RestTimer.MAX_SECONDS)) }
     }
 
     fun getRestVibrate(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_REST_VIBRATE, true)
+        prefs(context).getBoolean(KEY_REST_VIBRATE, true)
 
     fun setRestVibrate(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit { putBoolean(KEY_REST_VIBRATE, enabled) }
+        prefs(context).edit { putBoolean(KEY_REST_VIBRATE, enabled) }
     }
 }
 
@@ -177,10 +172,12 @@ fun ThemeMode.isDark(): Boolean = when (this) {
 val supportsDynamicColor: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 fun colorScheme(context: Context, dark: Boolean, dynamicColor: Boolean): ColorScheme = when {
-    // Dynamic schemes use the same color for background and surface, which would make cards blend into the page.
+    // Dynamic schemes use the same color for background and surface, which would make cards
+    // blend into the page.
     dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
         if (dark) dynamicDarkColorScheme(context).let { it.copy(surface = it.surfaceContainer) }
-        else dynamicLightColorScheme(context).let { it.copy(background = it.surfaceContainer, surface = it.surfaceContainerLowest) }
+        else dynamicLightColorScheme(context).let { it.copy(background = it.surfaceContainer,
+            surface = it.surfaceContainerLowest) }
     dark -> DarkColorScheme
     else -> LightColorScheme
 }
@@ -188,11 +185,13 @@ fun colorScheme(context: Context, dark: Boolean, dynamicColor: Boolean): ColorSc
 @Composable
 fun PhribsTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = supportsDynamicColor &&
+            ThemePreferences.getDynamicColor(LocalContext.current),
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = colorScheme(LocalContext.current, themeMode.isDark(), dynamicColor),
+        colorScheme = colorScheme(LocalContext.current,
+            themeMode.isDark(), dynamicColor),
         typography = Typography,
         content = content
     )
