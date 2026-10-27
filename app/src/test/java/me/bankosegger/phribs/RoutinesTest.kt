@@ -72,6 +72,26 @@ class RoutinesTest {
     }
 
     @Test
+    fun `prefilling a single exercise carries over its last sets`() {
+        val workouts = listOf(workout(1, daysAgo = 1, exercise("Bench Press", 8 to 70.0, 6 to 75.0)))
+        val filled = prefill(" bench press ", lastSessions(workouts))
+        assertEquals("Bench Press", filled.name)
+        assertEquals(listOf(ExerciseSet(8, 70.0), ExerciseSet(6, 75.0)), filled.sets)
+    }
+
+    @Test
+    fun `exercise options put recent ones first and drop duplicates`() {
+        val options = exerciseOptions("", listOf("Bench Press"), listOf("Squat", "bench press"))
+        assertEquals(listOf("Bench Press", "Squat"), options)
+    }
+
+    @Test
+    fun `exercise options match the query anywhere ignoring case`() {
+        val options = exerciseOptions(" PRESS", listOf("Squat"), listOf("Bench Press", "Overhead Press"))
+        assertEquals(listOf("Bench Press", "Overhead Press"), options)
+    }
+
+    @Test
     fun `routine exercise names drop blanks and duplicates`() {
         val exercises = listOf(
             exercise("Bench Press", 5 to 80.0),

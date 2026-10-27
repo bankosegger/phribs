@@ -15,14 +15,26 @@ internal fun lastSessions(workouts: List<Workout>): Map<String, Exercise> =
  * logged. Notes are dropped: they describe how that session went, not this one.
  */
 internal fun prefill(routine: Routine, lastSessions: Map<String, Exercise>): List<Exercise> =
-    routine.exerciseNames.map { name ->
-        val last = lastSessions[name.lowercase()]
-        Exercise(
-            // The logged spelling is the one the user has been using; keep history consistent with it.
-            name = last?.name ?: name,
-            sets = last?.sets?.takeIf { it.isNotEmpty() } ?: listOf(DEFAULT_SET)
-        )
-    }
+    routine.exerciseNames.map { prefill(it, lastSessions) }
+
+/** A single exercise to start logging, carrying over the sets from the last time it was logged. */
+internal fun prefill(name: String, lastSessions: Map<String, Exercise>): Exercise {
+    val last = lastSessions[name.trim().lowercase()]
+    return Exercise(
+        // The logged spelling is the one the user has been using; keep history consistent with it.
+        name = last?.name ?: name.trim(),
+        sets = last?.sets?.takeIf { it.isNotEmpty() } ?: listOf(DEFAULT_SET)
+    )
+}
+
+/**
+ * Exercise names to offer when adding one to a workout: recently logged ones first, then the
+ * catalog, de-duplicated ignoring case and narrowed to those containing [query].
+ */
+internal fun exerciseOptions(query: String, recent: List<String>, catalog: List<String>): List<String> =
+    (recent + catalog)
+        .distinctBy { it.trim().lowercase() }
+        .filter { it.contains(query.trim(), ignoreCase = true) }
 
 /** Exercise names of a workout, de-duplicated, ready to be saved as a routine. */
 internal fun routineExerciseNames(exercises: List<Exercise>): List<String> =

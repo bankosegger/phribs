@@ -215,6 +215,7 @@ fun GymApp(
         LogWorkoutScreen(
             knownExercises = workouts.flatMap { w -> w.exercises.map { it.name } }.distinct(),
             catalogExerciseNames = catalogExerciseNames,
+            lastSessions = remember(workouts) { lastSessions(workouts) },
             previousBests = remember(workouts) { bestSets(workouts) },
             weightUnit = weightUnit,
             restSeconds = restSeconds.takeIf { restTimerEnabled },

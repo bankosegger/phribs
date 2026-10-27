@@ -18,7 +18,8 @@ import me.bankosegger.phribs.ui.theme.WeightUnit
 import me.bankosegger.phribs.ui.theme.fromUnitToKg
 import me.bankosegger.phribs.ui.theme.toUnit
 
-data class SetInput(val reps: String = "10", val weight: String = "")
+/** @param done ticked off while logging; only tracks progress, so it is never saved. */
+data class SetInput(val reps: String = "10", val weight: String = "", val done: Boolean = false)
 
 fun List<SetInput>.toSets(unit: WeightUnit): List<ExerciseSet> = map {
     ExerciseSet(
